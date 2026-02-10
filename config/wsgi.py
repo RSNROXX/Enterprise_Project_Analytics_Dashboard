@@ -1,5 +1,5 @@
 """
-WSGI config for flipspaces_analytics project.
+WSGI config for Analytics_Dashboard project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -9,8 +9,8 @@ https://docs.djangoproject.com/en/6.0/howto/deployment/wsgi/
 
 import os
 
-from django.core.wsgi import get_wsgi_application
+from django.core.wsgi import get_wsgi_application       # type: ignore
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'flipspaces_analytics.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 application = get_wsgi_application()
