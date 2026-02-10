@@ -15,10 +15,12 @@ class Project(models.Model):
     # --- Team ---
     sales_head = models.CharField(max_length=100, null=True, blank=True)
     sales_lead = models.CharField(max_length=100, null=True, blank=True)
+
     design_dh = models.CharField(max_length=100, null=True, blank=True)
     design_dm = models.CharField(max_length=100, null=True, blank=True)
     design_id = models.CharField(max_length=100, null=True, blank=True)
     design_3d = models.CharField(max_length=100, null=True, blank=True)
+
     ops_head = models.CharField(max_length=100, null=True, blank=True)
     ops_pm = models.CharField(max_length=100, null=True, blank=True)
     ops_om = models.CharField(max_length=100, null=True, blank=True)
@@ -75,5 +77,64 @@ class Project(models.Model):
     dpr_ratio = models.FloatField(default=0.0)
     manpower_day_ratio = models.FloatField(default=0.0)
 
-    def __str__(self):
+def __str__(self):
         return self.project_code
+
+
+# --- NEW: Admin Panel Structures ---
+
+class Department(models.Model):
+    name = models.CharField(max_length=50, unique=True) # e.g., 'Sales', 'Design', 'Operations'
+
+    def __str__(self):
+        return self.name
+
+class UserGroup(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    name = models.CharField(max_length=50) # e.g., 'ID', 'DH', 'PM', 'Sales Lead'
+
+    def __str__(self):
+        return f"{self.department.name} - {self.name}"
+    
+class SuccessMetric(models.Model):
+    COLOR_CHOICES = [
+        ('primary', 'Blue (Primary)'),
+        ('secondary', 'Grey (Secondary)'),
+        ('success', 'Green (Success)'),
+        ('danger', 'Red (Danger)'),
+        ('warning', 'Yellow (Warning)'),
+        ('info', 'Cyan (Info)'),
+        ('light', 'White (Light)'),
+        ('dark', 'Black (Dark)'),
+    ]
+
+    name = models.CharField(max_length=50, unique=True) # e.g. "Completeness"
+    color = models.CharField(max_length=20, choices=COLOR_CHOICES, default='secondary') # e.g. "success", "warning", "danger"
+
+    def __str__(self):
+        return self.name
+
+class Metric(models.Model):
+    STAGE_CHOICES = [('Pre', 'Pre-Stage'), ('Post', 'Post-Stage')]
+
+    label = models.CharField(max_length=100) # The display name e.g., "Key Plans Ratio"
+    field_name = models.CharField(max_length=100, help_text="Must match a field in the Project model exactly (e.g., key_plans_ratio)")
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    stage = models.CharField(max_length=10, choices=STAGE_CHOICES)
+    
+    # Logic & Config
+    default_threshold = models.FloatField(default=0.0)
+
+    # Success Category (For color-coding in UI)
+    success_metric = models.ForeignKey(SuccessMetric, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # User Group Link (Which roles see this metric?)
+    # ManyToMany because "Key Plans" might be visible to both 'ID' and 'DH'
+    visible_to_groups = models.ManyToManyField(UserGroup, blank=True)
+
+    # Credit System (Phase 2 Prep)
+    is_manual_credit = models.BooleanField(default=False)
+    credit_weight = models.FloatField(default=0.0) # Auto-calculated
+
+    def __str__(self):
+        return f"{self.label} ({self.department})"

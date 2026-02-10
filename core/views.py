@@ -1,29 +1,24 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from io import BytesIO
-from django.shortcuts import render, redirect       # type:ignore
-from django.contrib import messages                 # type:ignore
-from django.http import HttpResponse                # type:ignore
-from django.db.models import Q                      # type:ignore
+from django.shortcuts import render, redirect, get_object_or_404  #type:ignore
+from django.contrib import messages                             #type:ignore
+from django.http import HttpResponse                            #type:ignore
+from django.db.models import Q                                  #type:ignore
 
 from .forms import UploadFileForm
-from .models import Project
-from .constants import METRICS_CONFIG, EXCEL_COL_MAP
+from .models import Project, Metric, Department, UserGroup 
+from .constants import EXCEL_COL_MAP    
 
 # ==============================================================================
-#  INTERNAL HELPER FUNCTIONS (The Engine Room)
-#  These functions handle the logic shared across all views.
+#  INTERNAL HELPER FUNCTIONS
 # ==============================================================================
 
 def _get_request_params(request):
-    """
-    Extracts and normalizes standard parameters (Dates, View Mode, Filters) from the request.
-    Returns calculated date objects including the 'Rolling Window' for execution stats.
-    """
     default_start = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     default_end = datetime.now().strftime('%Y-%m-%d')
     
-    view_mode = request.GET.get('view', 'Sales')
+    view_mode = request.GET.get('view', 'Sales') 
     start_str = request.GET.get('start', default_start)
     end_str = request.GET.get('end', default_end)
     sbu_filter = request.GET.getlist('sbu') or ['North', 'South', 'West', 'Central']
@@ -36,16 +31,37 @@ def _get_request_params(request):
         start_dt = datetime.now().date() - timedelta(days=30)
         end_dt = datetime.now().date()
 
-    # Streamlit Logic: Rolling Window (6 months back, 8 months forward)
     roll_start = start_dt - timedelta(days=180)
     roll_end = end_dt + timedelta(days=240)
 
     return view_mode, start_str, end_str, start_dt, end_dt, sbu_filter, role_filter, roll_start, roll_end
 
+def _fetch_metrics_from_db(view_mode, stage, role_filter):
+    try:
+        dept = Department.objects.get(name__iexact=view_mode)
+    except Department.DoesNotExist:
+        return []
+
+    # FETCH EVERYTHING for this department & stage
+    metrics_qs = Metric.objects.filter(department=dept, stage=stage).prefetch_related('visible_to_groups')
+
+    metrics_list = []
+    for m in metrics_qs:
+        # Store the allowed groups so we can sort them later in Python
+        allowed_groups = [g.name for g in m.visible_to_groups.all()]
+        
+        metrics_list.append({
+            'label': m.label,
+            'field': m.field_name,
+            'def': m.default_threshold,
+            'success_cat': m.success_metric.name if m.success_metric else None,
+            'success_color': m.success_metric.color if m.success_metric else 'secondary', 
+            'allowed_groups': allowed_groups, # New: We need this for sorting
+            'id': m.pk 
+        })
+    return metrics_list
+
 def _apply_people_filters(queryset, view_mode, request):
-    """
-    Applies the specific people filters (Head, Lead, PM, etc.) based on the View Mode.
-    """
     def _filter(qs, db_field, get_param):
         selected = request.GET.getlist(get_param)
         if not selected: return qs
@@ -68,15 +84,9 @@ def _apply_people_filters(queryset, view_mode, request):
         queryset = _filter(queryset, 'ops_ss', 'f_o_ss')
         queryset = _filter(queryset, 'ops_mep', 'f_o_mep')
         queryset = _filter(queryset, 'ops_csc', 'f_o_csc')
-    
     return queryset
 
 def _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end):
-    """
-    Splits the main project list into 'Pre-Stage' and 'Post-Stage' querysets
-    based on the specific business rules for Sales, Design, and Ops.
-    """
-    # Common Rolling Window Mask (Intersection Logic)
     q_rolling = Q(start_date__gte=roll_start) & Q(start_date__lte=end_dt) & \
                 Q(end_date__gte=start_dt) & Q(end_date__lte=roll_end)
 
@@ -84,19 +94,14 @@ def _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll
     qs_post = Project.objects.none()
 
     if view_mode == 'Sales':
-        # Pre: Login Date | Post: Rolling + Stage Check
         qs_pre = projects.filter(login_date__gte=start_dt, login_date__lte=end_dt, stage='Pre Sales')
         qs_post = projects.filter(q_rolling, stage='Post Sales')
-
     elif view_mode == 'Design':
-        # Pre: Login Date | Post: Rolling
         qs_pre = projects.filter(login_date__gte=start_dt, login_date__lte=end_dt)
         qs_post = projects.filter(q_rolling).distinct()
-
     elif view_mode == 'Operations':
-        # Pre: None | Post: Rolling
         qs_post = projects.filter(q_rolling).distinct()
-
+    
     return qs_pre, qs_post
 
 def _get_dropdown_context(request):
@@ -107,24 +112,48 @@ def _get_dropdown_context(request):
         except: return []
 
     people_opts = {
-        's_head': get_opts('sales_head'), 's_lead': get_opts('sales_lead'),
-        'd_dh': get_opts('design_dh'), 'd_dm': get_opts('design_dm'),
-        'd_id': get_opts('design_id'), 'd_3d': get_opts('design_3d'),
-        'o_head': get_opts('ops_head'), 'o_pm': get_opts('ops_pm'),
-        'o_om': get_opts('ops_om'), 'o_ss': get_opts('ops_ss'),
-        'o_mep': get_opts('ops_mep'), 'o_csc': get_opts('ops_csc'),
+        'm_head': get_opts('m_head'),
+        'm_lead': get_opts('m_lead'),
+
+        's_head': get_opts('sales_head'), 
+        's_lead': get_opts('sales_lead'),
+
+        'd_dh': get_opts('design_dh'), 
+        'd_dm': get_opts('design_dm'),
+        'd_id': get_opts('design_id'), 
+        'd_3d': get_opts('design_3d'),
+
+        'o_head': get_opts('ops_head'), 
+        'o_pm': get_opts('ops_pm'),
+        'o_om': get_opts('ops_om'), 
+        'o_ss': get_opts('ops_ss'),
+        'o_mep': get_opts('ops_mep'), 
+        'o_csc': get_opts('ops_csc'),
+
+        'p_head': get_opts('p_head'),
+        'p_exec': get_opts('p_exec'),
+        'p_mgr': get_opts('p_mgr'),
+
+        'f_head': get_opts('f_head'),
     }
     
     selected_filters = {
-        's_head': request.GET.getlist('f_s_head'), 's_lead': request.GET.getlist('f_s_lead'),
-        'd_dh': request.GET.getlist('f_d_dh'), 'd_dm': request.GET.getlist('f_d_dm'),
-        'd_id': request.GET.getlist('f_d_id'), 'd_3d': request.GET.getlist('f_d_3d'),
-        'o_head': request.GET.getlist('f_o_head'), 'o_pm': request.GET.getlist('f_o_pm'),
-        'o_om': request.GET.getlist('f_o_om'), 'o_ss': request.GET.getlist('f_o_ss'),
-        'o_mep': request.GET.getlist('f_o_mep'), 'o_csc': request.GET.getlist('f_o_csc'),
+        's_head': request.GET.getlist('f_s_head'), 
+        's_lead': request.GET.getlist('f_s_lead'),
+
+        'd_dh': request.GET.getlist('f_d_dh'), 
+        'd_dm': request.GET.getlist('f_d_dm'),
+        'd_id': request.GET.getlist('f_d_id'), 
+        'd_3d': request.GET.getlist('f_d_3d'),
+
+        'o_head': request.GET.getlist('f_o_head'), 
+        'o_pm': request.GET.getlist('f_o_pm'),
+        'o_om': request.GET.getlist('f_o_om'), 
+        'o_ss': request.GET.getlist('f_o_ss'),
+        'o_mep': request.GET.getlist('f_o_mep'), 
+        'o_csc': request.GET.getlist('f_o_csc'),
     }
     return people_opts, selected_filters
-
 
 # ==============================================================================
 # 1. UPLOAD VIEW
@@ -134,10 +163,10 @@ def upload_view(request):
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             try:
-                # --- Excel Parsing Logic (Kept intact) ---
                 file = request.FILES['file']
                 xls = pd.ExcelFile(file)
                 sheet_map = {'sales': '', 'design': '', 'operation': ''}
+                
                 for name in xls.sheet_names:
                     lower = str(name).lower()
                     if 'sales' in lower: sheet_map['sales'] = str(name)
@@ -146,13 +175,13 @@ def upload_view(request):
 
                 project_data_map = {}
 
-                # Helpers
                 def clean_str(val): return '' if pd.isnull(val) or str(val).strip().lower() == 'nan' else str(val).strip()
                 def parse_date(val): return pd.to_datetime(val).date() if pd.notnull(val) else None
                 def clean_num(val):
                     if pd.isnull(val): return 0.0
                     try: return float(str(val).replace('%','').replace(',','').strip())
                     except: return 0.0
+                
                 def get_clean_id(row):
                     for c in ['Project Code','project_code','Code','code','Lead Id']:
                         if c in row.index and pd.notnull(row[c]):
@@ -165,7 +194,6 @@ def upload_view(request):
                     df = pd.read_excel(file, sheet_name=sheet_name)
                     df.columns = [str(c).strip() for c in df.columns]
 
-                    # Custom Maths
                     if sheet_type == 'design':
                         if 'No Key Plans Spaces' in df.columns and 'Mapped Spaces' in df.columns:
                             df['Key Plans Ratio'] = pd.to_numeric(df['No Key Plans Spaces'], errors='coerce').fillna(0) / pd.to_numeric(df['Mapped Spaces'], errors='coerce').replace(0,1).fillna(0)
@@ -179,13 +207,11 @@ def upload_view(request):
                             if n in df.columns and d in df.columns:
                                 df[t] = (pd.to_numeric(df[n], errors='coerce') / pd.to_numeric(df[d], errors='coerce').replace(0,1)).fillna(0)
 
-                    # Row Mapping
                     for _, row in df.iterrows():
                         p_id = get_clean_id(row)
                         if not p_id: continue
                         if p_id not in project_data_map: project_data_map[p_id] = {'project_code': p_id}
                         
-                        # Meta Data
                         meta = {
                             'project_name': ['Project Name'], 'sbu': ['SBU'], 'stage': ['Stage', 'Status'],
                             'sales_head': ['Sales Head'], 'sales_lead': ['Sales Lead'],
@@ -200,7 +226,6 @@ def upload_view(request):
                                     if v: project_data_map[p_id][db] = v
                                     break
                         
-                        # Dates
                         dates = {'login_date': ['Project Login Date'], 'start_date': ['Project Start Date'], 'end_date': ['Project End Date']}
                         for db, opts in dates.items():
                             for col in opts:
@@ -209,14 +234,18 @@ def upload_view(request):
                                     if v: project_data_map[p_id][db] = v
                                     break
 
-                        # Metrics
                         full_map = EXCEL_COL_MAP.copy()
-                        full_map.update({'Key Plans Ratio':'key_plans_ratio', 'Other Layouts':'other_layouts', 'WPR Half Week':'wpr_half_week',
-                                         'Manpower Ratio':'manpower_ratio', 'DPR Ratio':'dpr_ratio', 'Manpower Day Ratio':'manpower_day_ratio'})
+                        full_map.update({
+                            'Key Plans Ratio':'key_plans_ratio', 'Other Layouts':'other_layouts', 
+                            'WPR Half Week':'wpr_half_week', 'Manpower Ratio':'manpower_ratio', 
+                            'DPR Ratio':'dpr_ratio', 'Manpower Day Ratio':'manpower_day_ratio'
+                        })
+                        
                         for xl, db in full_map.items():
                             if xl in row.index:
                                 v = clean_num(row[xl])
-                                if v != 0 or db not in project_data_map[p_id]: project_data_map[p_id][db] = v
+                                if v != 0 or db not in project_data_map[p_id]: 
+                                    project_data_map[p_id][db] = v
 
                 process_sheet(sheet_map['sales'], 'sales')
                 process_sheet(sheet_map['design'], 'design')
@@ -224,7 +253,8 @@ def upload_view(request):
 
                 Project.objects.all().delete()
                 Project.objects.bulk_create([Project(**d) for d in project_data_map.values()])
-                messages.success(request, f"Successfully uploaded {len(project_data_map)} projects.")
+                
+                messages.success(request, f"Successfully processed {len(project_data_map)} projects.")
                 return redirect('dashboard')
 
             except Exception as e:
@@ -233,61 +263,68 @@ def upload_view(request):
         form = UploadFileForm()
     return render(request, 'core/upload.html', {'form': form})
 
-
 # ==============================================================================
-# 2. DASHBOARD VIEW (Refactored)
+# 2. DASHBOARD VIEW
 # ==============================================================================
 def dashboard_view(request):
-    # 1. Fetch Request Params & Context
     view_mode, start_str, end_str, start_dt, end_dt, sbu_filter, role_filter, roll_start, roll_end = _get_request_params(request)
     people_opts, selected_filters = _get_dropdown_context(request)
-
-    # 2. Filter Projects
+    
     projects = Project.objects.filter(sbu__in=sbu_filter)
     projects = _apply_people_filters(projects, view_mode, request)
+    all_departments = Department.objects.values_list('name', flat=True).order_by('name')
 
-    # 3. Split into Stages
     qs_pre, qs_post = _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end)
-    
     pre_count = qs_pre.count()
     post_count = qs_post.count()
 
-    # 4. Metric Calculation Engine (Specific for Dashboard Cards)
-    def calculate_card_metrics(queryset, metrics, prefix):
+    def calculate_card_metrics(queryset, metrics_list, prefix):
         results_prim, results_sec = [], []
-        for m in metrics:
-            # A. Dynamic Priority: If role selected, match=Primary, no-match=Secondary
-            is_primary = True
-            if role_filter != "All Roles":
-                is_primary = role_filter in m.get('roles', [])
-
-            # B. Threshold
+        
+        for m in metrics_list:
             param_name = f"thresh_{prefix}_{m['field']}"
             user_input = request.GET.get(param_name)
             try: threshold = float(user_input) if user_input else m['def']
             except: threshold = m['def']
 
-            # C. Data & List
             filtered_qs = queryset.filter(**{f"{m['field']}__gte": threshold})
             count = filtered_qs.count()
-            proj_names = list(filtered_qs.values_list('project_name', flat=True).order_by('project_name'))
+            proj_data = list(filtered_qs.values('id', 'project_name').order_by('project_name'))
 
-            item = {'label': m['label'], 'param': param_name, 'threshold': threshold, 'count': count, 'field': m['field'], 'project_list': proj_names}
+            item = {
+                'label': m['label'], 'param': param_name, 'threshold': threshold, 
+                'count': count, 'field': m['field'], 
+                'success_cat': m['success_cat'], 
+                'success_color': m.get('success_color', 'secondary'), 
+                'project_list': proj_data
+            }
+
+            # --- LOGIC RESTORED: Primary vs Secondary ---
+            # If "All Roles" -> Show Everything in Primary
+            # If Role Selected -> Show Matching in Primary, Others in Secondary ("See More")
+            is_primary = False
+            if role_filter == "All Roles":
+                is_primary = True
+            elif role_filter in m['allowed_groups']:
+                is_primary = True
             
-            if is_primary: results_prim.append(item)
-            else: results_sec.append(item)
+            if is_primary:
+                results_prim.append(item)
+            else:
+                results_sec.append(item)
+                
         return results_prim, results_sec
 
-    # 5. Execute Calculations
+    pre_metrics_db = _fetch_metrics_from_db(view_mode, 'Pre', role_filter)
+    post_metrics_db = _fetch_metrics_from_db(view_mode, 'Post', role_filter)
+
     pre_prim, pre_sec = [], []
     if view_mode != 'Operations':
-        pre_prim, pre_sec = calculate_card_metrics(qs_pre, METRICS_CONFIG[view_mode]['Pre'], 'pre')
-    
-    post_prim, post_sec = [], []
-    post_metrics = METRICS_CONFIG[view_mode] if view_mode == 'Operations' else METRICS_CONFIG[view_mode]['Post']
-    post_prim, post_sec = calculate_card_metrics(qs_post, post_metrics, 'post')
+        pre_prim, pre_sec = calculate_card_metrics(qs_pre, pre_metrics_db, 'pre')
 
-    # 6. Render
+    post_prim, post_sec = [], []
+    post_prim, post_sec = calculate_card_metrics(qs_post, post_metrics_db, 'post')
+
     sbu_opts = sorted([s for s in Project.objects.values_list('sbu', flat=True).distinct() if s])
     
     context = {
@@ -296,29 +333,24 @@ def dashboard_view(request):
         'current_role': role_filter, 'people_opts': people_opts, 'selected_filters': selected_filters,
         'pre_prim': pre_prim, 'pre_sec': pre_sec, 'pre_count': pre_count,
         'post_prim': post_prim, 'post_sec': post_sec, 'post_count': post_count,
+        'all_departments': all_departments,
     }
     return render(request, 'core/dashboard.html', context)
 
-
 # ==============================================================================
-# 3. EXPORT SUMMARY VIEW (Excel)
+# 3. EXPORT SUMMARY (Excel)
 # ==============================================================================
 def export_view(request):
-    # 1. Reuse Common Logic
     view_mode, _, _, start_dt, end_dt, sbu_filter, role_filter, roll_start, roll_end = _get_request_params(request)
     projects = Project.objects.filter(sbu__in=sbu_filter)
     projects = _apply_people_filters(projects, view_mode, request)
     qs_pre, qs_post = _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end)
 
-    # 2. DataFrame Generator
-    def generate_summary_df(queryset, metrics, prefix):
+    def generate_summary_df(queryset, metrics_list, prefix):
         total = queryset.count()
         data = [{"Metric Name": "TOTAL PROJECTS", "Threshold": "-", "Value": total, "%": "-"}]
         
-        for m in metrics:
-            # Export Rule: If specific role selected, EXCLUDE non-matching metrics entirely.
-            if role_filter != "All Roles" and role_filter not in m.get('roles', []): continue
-
+        for m in metrics_list:
             param_name = f"thresh_{prefix}_{m['field']}"
             user_input = request.GET.get(param_name)
             try: threshold = float(user_input) if user_input else m['def']
@@ -326,15 +358,18 @@ def export_view(request):
             
             count = queryset.filter(**{f"{m['field']}__gte": threshold}).count()
             pct = round((count / total * 100), 1) if total > 0 else 0.0
-            data.append({"Metric Name": m['label'], "Threshold": threshold, "Value": count, "%": f"{pct}%"})
-        
+            
+            data.append({
+                "Metric Name": m['label'], "Category": m['success_cat'],
+                "Threshold": threshold, "Value": count, "%": f"{pct}%"
+            })
         return pd.DataFrame(data)
 
-    # 3. Build & Write
-    df_pre = generate_summary_df(qs_pre, METRICS_CONFIG[view_mode]['Pre'], 'pre') if view_mode != 'Operations' else pd.DataFrame()
-    
-    post_metrics = METRICS_CONFIG[view_mode] if view_mode == 'Operations' else METRICS_CONFIG[view_mode]['Post']
-    df_post = generate_summary_df(qs_post, post_metrics, 'post')
+    pre_metrics_db = _fetch_metrics_from_db(view_mode, 'Pre', role_filter)
+    post_metrics_db = _fetch_metrics_from_db(view_mode, 'Post', role_filter)
+
+    df_pre = generate_summary_df(qs_pre, pre_metrics_db, 'pre') if view_mode != 'Operations' else pd.DataFrame()
+    df_post = generate_summary_df(qs_post, post_metrics_db, 'post')
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -347,40 +382,68 @@ def export_view(request):
     response['Content-Disposition'] = f'attachment; filename="Summary_{view_mode}.xlsx"'
     return response
 
-
 # ==============================================================================
-# 4. EXPORT DETAILED VIEW (Excel)
+# 4. EXPORT DETAILED (Excel with ID/Roles)
 # ==============================================================================
 def export_detailed_view(request):
-    # 1. Reuse Common Logic
     view_mode, _, _, start_dt, end_dt, sbu_filter, role_filter, roll_start, roll_end = _get_request_params(request)
     projects = Project.objects.filter(sbu__in=sbu_filter)
     projects = _apply_people_filters(projects, view_mode, request)
     qs_pre, qs_post = _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end)
 
-    # 2. Detailed Data Generator
-    def generate_detailed_df(queryset, metrics):
-        active_metrics = [m for m in metrics if role_filter == "All Roles" or role_filter in m.get('roles', [])]
-        if not active_metrics: return pd.DataFrame()
+    def generate_detailed_df(queryset, metrics_list):
+        if not metrics_list and not queryset.exists(): return pd.DataFrame()
 
-        db_fields = [m['field'] for m in active_metrics]
-        data = list(queryset.values('project_name', *db_fields))
+        role_map = {
+            'Sales': {'Sales Head': 'sales_head', 'Sales Lead': 'sales_lead'},
+            'Design': {'DH': 'design_dh', 'DM': 'design_dm', 'ID': 'design_id', '3D': 'design_3d'},
+            'Operations': {'BU Head': 'ops_head', 'SPM/PM': 'ops_pm', 'PM': 'ops_pm', 'SOM/OM': 'ops_om', 'OM': 'ops_om', 'SS': 'ops_ss', 'MEP': 'ops_mep', 'CSC': 'ops_csc'}
+        }
+        
+        selected_role_cols = []
+        if view_mode in role_map:
+            if role_filter != 'All Roles':
+                col = role_map[view_mode].get(role_filter)
+                if col: selected_role_cols = [col]
+            else:
+                selected_role_cols = list(set(role_map[view_mode].values()))
+
+        metric_fields = [m['field'] for m in metrics_list]
+        fetch_fields = ['project_code', 'project_name'] + selected_role_cols + metric_fields
+        
+        data = list(queryset.values(*fetch_fields))
         if not data: return pd.DataFrame()
 
         df = pd.DataFrame(data)
-        rename_map = {'project_name': 'Project Name'}
-        for m in active_metrics: rename_map[m['field']] = m['label']
-        df = df.rename(columns=rename_map).fillna(0)
+        rename_map = {
+            'project_code': 'Project ID', 'project_name': 'Project Name',
+            'sales_head': 'Sales Head', 'sales_lead': 'Sales Lead',
+            'design_dh': 'DH', 'design_dm': 'DM', 'design_id': 'ID', 'design_3d': '3D',
+            'ops_head': 'Ops Head', 'ops_pm': 'PM', 'ops_om': 'OM', 'ops_ss': 'SS', 'ops_mep': 'MEP', 'ops_csc': 'CSC'
+        }
+        for m in metrics_list: rename_map[m['field']] = m['label']
+        
+        df = df.rename(columns=rename_map).fillna('')
+
+        base_cols = ['Project ID', 'Project Name']
+        role_headers = [rename_map.get(c, c) for c in selected_role_cols]
+        metric_headers = [m['label'] for m in metrics_list]
+        
+        final_order = base_cols + role_headers + metric_headers
+        final_order = [c for c in final_order if c in df.columns]
+        
+        df = df[final_order]
 
         sum_row = df.sum(numeric_only=True)
-        sum_row['Project Name'] = 'Grand Total'
-        return pd.concat([df, sum_row.to_frame().T], ignore_index=True)
+        sum_df = pd.DataFrame([sum_row], columns=df.columns)
+        sum_df['Project Name'] = 'Grand Total'
+        return pd.concat([df, sum_df], ignore_index=True).fillna('')
 
-    # 3. Build & Write
-    df_pre = generate_detailed_df(qs_pre, METRICS_CONFIG[view_mode]['Pre']) if view_mode != 'Operations' else pd.DataFrame()
-    
-    post_metrics = METRICS_CONFIG[view_mode] if view_mode == 'Operations' else METRICS_CONFIG[view_mode]['Post']
-    df_post = generate_detailed_df(qs_post, post_metrics)
+    pre_metrics_db = _fetch_metrics_from_db(view_mode, 'Pre', role_filter)
+    post_metrics_db = _fetch_metrics_from_db(view_mode, 'Post', role_filter)
+
+    df_pre = generate_detailed_df(qs_pre, pre_metrics_db) if view_mode != 'Operations' else pd.DataFrame()
+    df_post = generate_detailed_df(qs_post, post_metrics_db)
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
@@ -393,39 +456,69 @@ def export_detailed_view(request):
     response['Content-Disposition'] = f'attachment; filename="Detailed_{view_mode}.xlsx"'
     return response
 
-
 # ==============================================================================
-# 5. LIVE REPORT DETAILED (HTML)
+# 5. LIVE REPORT DETAILED (View)
 # ==============================================================================
 def report_detailed_view(request):
-    # 1. Reuse Common Logic
+    # Reuse Logic from Export Detailed
+    # NOTE: Since this is identical logic, we are re-using the exact same flow 
+    # but rendering HTML instead of Excel.
     view_mode, start_str, end_str, start_dt, end_dt, sbu_filter, role_filter, roll_start, roll_end = _get_request_params(request)
     projects = Project.objects.filter(sbu__in=sbu_filter)
     projects = _apply_people_filters(projects, view_mode, request)
     qs_pre, qs_post = _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end)
 
-    # 2. Logic duplicated from export_detailed_view (required for context rendering)
-    def generate_detailed_df(queryset, metrics):
-        active_metrics = [m for m in metrics if role_filter == "All Roles" or role_filter in m.get('roles', [])]
-        if not active_metrics: return pd.DataFrame()
+    def generate_detailed_df(queryset, metrics_list):
+        if not metrics_list and not queryset.exists(): return pd.DataFrame()
         
-        db_fields = [m['field'] for m in active_metrics]
-        data = list(queryset.values('project_name', *db_fields))
+        # 1. Role Columns
+        role_map = {
+            'Sales': {'Sales Head': 'sales_head', 'Sales Lead': 'sales_lead'},
+            'Design': {'DH': 'design_dh', 'DM': 'design_dm', 'ID': 'design_id', '3D': 'design_3d'},
+            'Operations': {'BU Head': 'ops_head', 'SPM/PM': 'ops_pm', 'PM': 'ops_pm', 'SOM/OM': 'ops_om', 'OM': 'ops_om', 'SS': 'ops_ss', 'MEP': 'ops_mep', 'CSC': 'ops_csc'}
+        }
+        selected_role_cols = []
+        if view_mode in role_map:
+            if role_filter != 'All Roles':
+                col = role_map[view_mode].get(role_filter)
+                if col: selected_role_cols = [col]
+            else:
+                selected_role_cols = list(set(role_map[view_mode].values()))
+
+        # 2. Data Fetch
+        metric_fields = [m['field'] for m in metrics_list]
+        fetch_fields = ['project_code', 'project_name'] + selected_role_cols + metric_fields
+        data = list(queryset.values(*fetch_fields))
         if not data: return pd.DataFrame()
 
         df = pd.DataFrame(data)
-        rename_map = {'project_name': 'Project Name'}
-        for m in active_metrics: rename_map[m['field']] = m['label']
-        df = df.rename(columns=rename_map).fillna(0)
-        
-        sum_row = df.sum(numeric_only=True)
-        sum_row['Project Name'] = 'Grand Total'
-        return pd.concat([df, sum_row.to_frame().T], ignore_index=True)
+        rename_map = {
+            'project_code': 'Project ID', 'project_name': 'Project Name',
+            'sales_head': 'Sales Head', 'sales_lead': 'Sales Lead',
+            'design_dh': 'DH', 'design_dm': 'DM', 'design_id': 'ID', 'design_3d': '3D',
+            'ops_head': 'Ops Head', 'ops_pm': 'PM', 'ops_om': 'OM', 'ops_ss': 'SS', 'ops_mep': 'MEP', 'ops_csc': 'CSC'
+        }
+        for m in metrics_list: rename_map[m['field']] = m['label']
+        df = df.rename(columns=rename_map).fillna('')
 
-    df_pre = generate_detailed_df(qs_pre, METRICS_CONFIG[view_mode]['Pre']) if view_mode != 'Operations' else pd.DataFrame()
-    
-    post_metrics = METRICS_CONFIG[view_mode] if view_mode == 'Operations' else METRICS_CONFIG[view_mode]['Post']
-    df_post = generate_detailed_df(qs_post, post_metrics)
+        # 3. Order
+        base_cols = ['Project ID', 'Project Name']
+        role_headers = [rename_map.get(c, c) for c in selected_role_cols]
+        metric_headers = [m['label'] for m in metrics_list]
+        final_order = [c for c in (base_cols + role_headers + metric_headers) if c in df.columns]
+        df = df[final_order]
+
+        # 4. Total
+        sum_row = df.sum(numeric_only=True)
+        sum_df = pd.DataFrame([sum_row], columns=df.columns)
+        sum_df['Project Name'] = 'Grand Total'
+        return pd.concat([df, sum_df], ignore_index=True).fillna('')
+
+    pre_metrics_db = _fetch_metrics_from_db(view_mode, 'Pre', role_filter)
+    post_metrics_db = _fetch_metrics_from_db(view_mode, 'Post', role_filter)
+
+    df_pre = generate_detailed_df(qs_pre, pre_metrics_db) if view_mode != 'Operations' else pd.DataFrame()
+    df_post = generate_detailed_df(qs_post, post_metrics_db)
 
     context = {
         'view_mode': view_mode, 'start_date': start_str, 'end_date': end_str,
@@ -434,5 +527,59 @@ def report_detailed_view(request):
     }
     return render(request, 'core/report_detailed.html', context)
 
+# ==============================================================================
+# 6. LEADERSHIP LIVE REPORT (Fixed - Renders Summary Tables)
+# ==============================================================================
 def report_view(request):
-    return redirect('dashboard')
+    """
+    Renders the 'Leadership Summary' (Counts & Percentages) as a live HTML page.
+    Reuses report_detailed.html but sends summary dataframes.
+    """
+    view_mode, start_str, end_str, start_dt, end_dt, sbu_filter, role_filter, roll_start, roll_end = _get_request_params(request)
+    projects = Project.objects.filter(sbu__in=sbu_filter)
+    projects = _apply_people_filters(projects, view_mode, request)
+    qs_pre, qs_post = _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end)
+
+    def generate_summary_df(queryset, metrics_list, prefix):
+        total = queryset.count()
+        data = [{"Metric Name": "TOTAL PROJECTS", "Threshold": "-", "Value": total, "%": "-"}]
+        
+        for m in metrics_list:
+            param_name = f"thresh_{prefix}_{m['field']}"
+            user_input = request.GET.get(param_name)
+            try: threshold = float(user_input) if user_input else m['def']
+            except: threshold = m['def']
+            
+            count = queryset.filter(**{f"{m['field']}__gte": threshold}).count()
+            pct = round((count / total * 100), 1) if total > 0 else 0.0
+            
+            data.append({
+                "Metric Name": m['label'], "Category": m['success_cat'],
+                "Threshold": threshold, "Value": count, "%": f"{pct}%"
+            })
+        return pd.DataFrame(data)
+
+    pre_metrics_db = _fetch_metrics_from_db(view_mode, 'Pre', role_filter)
+    post_metrics_db = _fetch_metrics_from_db(view_mode, 'Post', role_filter)
+
+    df_pre = generate_summary_df(qs_pre, pre_metrics_db, 'pre') if view_mode != 'Operations' else pd.DataFrame()
+    df_post = generate_summary_df(qs_post, post_metrics_db, 'post')
+
+    context = {
+        'view_mode': view_mode, 'start_date': start_str, 'end_date': end_str,
+        'df_pre': df_pre.to_html(classes='table table-bordered table-striped table-hover table-sm', index=False, justify='center') if not df_pre.empty else None,
+        'df_post': df_post.to_html(classes='table table-bordered table-striped table-hover table-sm', index=False, justify='center') if not df_post.empty else None,
+        'report_title': 'Leadership Summary Report' # Context flag for title
+    }
+    return render(request, 'core/report_detailed.html', context)
+
+
+
+def project_detail(request, pk):
+    # 1. Fetch Project or 404
+    project = get_object_or_404(Project, pk=pk)
+    
+    # 2. Render Template
+    return render(request, 'core/project_detail.html', {
+        'project': project,
+    })

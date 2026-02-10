@@ -19,4 +19,6 @@ urlpatterns = [
 
     # 6. Detailed Report (The Detailed HTML table in a new tab)
     path('report-detailed/', views.report_detailed_view, name='report_detailed'),
+
+    path('project/<int:pk>/', views.project_detail, name='project_detail'),
 ]

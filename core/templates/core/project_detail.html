@@ -1,0 +1,80 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold text-primary mb-0">{{ project.project_name }}</h1>
+            <p class="text-muted">Project ID: #{{ project.id }}</p>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 border-primary">
+                <div class="card-header bg-white fw-bold text-primary">SALES & INFO</div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr><td class="text-muted w-50">SBU:</td><td class="fw-bold">{{ project.sbu }}</td></tr>
+                        <tr><td class="text-muted">Login Date:</td><td>{{ project.login_date|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Sales Head:</td><td>{{ project.s_head|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Sales Lead:</td><td>{{ project.s_lead|default:"-" }}</td></tr>
+                        <tr><td class="text-muted border-top pt-2">Requirements:</td><td class="border-top pt-2">{{ project.req_uploaded|yesno:"Uploaded,Pending" }}</td></tr>
+                        <tr><td class="text-muted">BOQ:</td><td>{{ project.boq_uploaded|yesno:"Uploaded,Pending" }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 border-info">
+                <div class="card-header bg-white fw-bold text-info">DESIGN STATUS</div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr><td class="text-muted w-50">Design Head:</td><td>{{ project.d_dh|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Manager (DM):</td><td>{{ project.d_dm|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Designer (ID):</td><td>{{ project.d_id|default:"-" }}</td></tr>
+                        <tr><td class="text-muted border-top pt-2">Pins Mapped:</td><td class="border-top pt-2">{{ project.mapped_spaces }}</td></tr>
+                        <tr><td class="text-muted">Renders:</td><td>{{ project.renders }}</td></tr>
+                        <tr><td class="text-muted">GFC Download:</td><td>{{ project.gfc_download|yesno:"Yes,No" }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 border-warning">
+                <div class="card-header bg-white fw-bold text-warning">OPERATIONS</div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr><td class="text-muted w-50">Cluster Head:</td><td>{{ project.o_head|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">PM:</td><td>{{ project.o_pm|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Site Super:</td><td>{{ project.o_ss|default:"-" }}</td></tr>
+                        <tr><td class="text-muted border-top pt-2">Site Images:</td><td class="border-top pt-2">{{ project.site_images }}</td></tr>
+                        <tr><td class="text-muted">Handover Docs:</td><td>{{ project.handover_docs|yesno:"Done,Pending" }}</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- <div class="col-md-6">
+            <div class="card h-100 shadow-sm border-0 border-start border-4 border-success">
+                <div class="card-header bg-white fw-bold text-success">FINANCE</div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless">
+                        <tr><td class="text-muted w-50">Total Invoiced:</td><td class="fw-bold">{{ project.f_total_invoiced|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Collected:</td><td class="text-success">{{ project.f_collected|default:"-" }}</td></tr>
+                        <tr><td class="text-muted">Balance:</td><td class="text-danger">{{ project.f_balance|default:"-" }}</td></tr>
+                        <tr><td class="text-muted border-top pt-2">Payment Status:</td><td class="border-top pt-2"><span class="badge bg-secondary">{{ project.f_payment_status|default:"Pending" }}</span></td></tr>
+                    </table>
+                </div>
+            </div>
+        </div> -->
+
+    </div>
+</div>
+{% endblock %}

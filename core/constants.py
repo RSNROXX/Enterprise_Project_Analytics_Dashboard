@@ -1,6 +1,37 @@
 # Keeps METRICS_CONFIG & EXCEL_COL_MAP  (CHANGES NEED TO MADE FOR COL NAMES)
 
-# constant.py
+DEPT_PEOPLE_MAP = {
+    'Marketing': [
+        ('m_head', 'Marketing Head'),
+        ('m_lead', 'Marketing Lead'),
+    ],
+    'Sales': [
+        ('s_head', 'Sales Head'),
+        ('s_lead', 'Sales Lead'),
+    ],
+    'Design': [
+        ('d_dh', 'Design Head (DH)'),
+        ('d_dm', 'Design Manager (DM)'),
+        ('d_id', 'Interior Designer (ID)'),
+        ('d_3d', '3D Visualizer'),
+    ],
+    'Operations': [
+        ('o_head', 'Cluster/BU Head'),
+        ('o_pm', 'Project Manager (PM)'),
+        ('o_om', 'Ops Manager (OM)'),
+        ('o_ss', 'Site Supervisor (SS)'),
+        ('o_mep', 'MEP Engineer'),
+        ('o_csc', 'CSC'),
+    ],
+    'Purchase': [
+        ('p_head', 'Purchase Head'),
+        ('p_mgr', 'Purchase Manager'),
+        ('p_exec', 'Purchase Executive'),
+    ],
+    'Finance': [
+        ('f_head', 'Finance Head'), 
+    ],
+}
 
 METRICS_CONFIG = {
     "Sales": {
@@ -22,7 +53,7 @@ METRICS_CONFIG = {
             # ID
             {"label": "Pins Mapped", "field": "mapped_spaces", "def": 3.0, "roles": ["ID"]},
             {"label": "Key Plans to Spaces", "field": "key_plans_ratio", "def": 0.33, "roles": ["ID"]},
-            {"label": "No Key Plans Spaces", "field": "no_plans_for_key_spaces", "def": 1, "roles": ["ID"]},
+            {"label": "No Key Plans Spaces", "field": "no_plans_for_key_spaces", "def": 1.0, "roles": ["ID"]},
             
             # 3D
             {"label": "Renders", "field": "renders", "def": 5.0, "roles": ["3D", "DM", "DH"]}, # User said 3D=Upload Renders
@@ -38,7 +69,7 @@ METRICS_CONFIG = {
             {"label": "Other Layouts", "field": "other_layouts", "def": 1.0, "roles": ["ID"]},
             {"label": "Furniture Layouts", "field": "furniture_layouts", "def": 1.0, "roles": ["ID", "DM", "DH"]}, # Shared
             {"label": "Mapped Spaces", "field": "mapped_spaces", "def": 3.0, "roles": ["ID"]},
-            {"label": "No Key Plans Spaces", "field": "no_plans_for_key_spaces", "def": 1, "roles": ["ID"]},
+            {"label": "No Key Plans Spaces", "field": "no_plans_for_key_spaces", "def": 1.0, "roles": ["ID"]},
             {"label": "TD & Elevations", "field": "td_elevations", "def": 10.0, "roles": ["ID"]},
             {"label": "CAD Files", "field": "cad_files", "def": 10.0, "roles": ["ID"]},
             {"label": "GFC Download", "field": "gfc_download", "def": 7.0, "roles": ["ID", "DM", "DH"]}, # Shared
@@ -76,7 +107,14 @@ METRICS_CONFIG = {
         {"label": "Unique Weekly Tasks", "field": "weekly_tasks", "def": 10.0, "roles": ["PM"]},
         {"label": "Unique Daily Tasks", "field": "daily_tasks", "def": 30.0, "roles": ["SS", "PM"]},
         {"label": "Manpower Ratio", "field": "manpower_ratio", "def": 0.66, "roles": ["SS", "PM"]},
-    ]
+    ],
+
+    "Marketing": [],
+
+    "Fiannce": [],
+
+    "Purchase": [],
+    
 }
 
 # Used for mapping Excel Column names to Django Model Fields
