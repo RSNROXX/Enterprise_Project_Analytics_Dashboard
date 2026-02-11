@@ -1,6 +1,6 @@
 from django.contrib import admin            # type: ignore
 from django.db.models import Sum            # type: ignore
-from .models import Project, Metric, Department, UserGroup, SuccessMetric
+from .models import Project, Metric, Department, UserGroup, SuccessMetric, MetricWeight
 
 # --- 1. Success Metrics (Tags) ---
 @admin.register(SuccessMetric)
@@ -9,10 +9,29 @@ class SuccessMetricAdmin(admin.ModelAdmin):
     list_editable = ('color',)
 
 # --- 2. User Groups & Departments ---
-admin.site.register(UserGroup)
-admin.site.register(Department)
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display = ('name',)
 
-# --- 3. Projects (Standard) ---
+@admin.register(UserGroup)
+class UserGroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'department')
+    list_filter = ('department',)
+    search_fields = ('name',)
+
+# --- 3. Inline for Metric Weights ---
+class MetricWeightInline(admin.TabularInline):
+    model = MetricWeight
+    extra = 0 # Clean UI: Start with no empty rows
+    min_num = 0
+    can_delete = True
+    verbose_name = "Weight per Group"
+    verbose_name_plural = "Weight Configuration (Auto-Balances 100%)"
+    
+    # This creates a searchable dropdown for Groups (Best for long lists)
+    autocomplete_fields = ['user_group']
+
+# --- 4. Projects (Standard) ---
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     list_display = ('project_name', 'project_code', 'stage', 'sbu', 'login_date')
@@ -20,80 +39,32 @@ class ProjectAdmin(admin.ModelAdmin):
     # REMOVED 'department' from here to fix the error
     list_filter = ('sbu', 'stage')
 
-# --- 4. The Smart Metric Admin (Auto-Balancing) ---
+# --- 5. The Smart Metric Admin (Auto-Balancing) ---
 @admin.register(Metric)
 class MetricAdmin(admin.ModelAdmin):
-    list_display = ('label', 'department', 'stage', 'get_groups', 'credit_weight', 'is_manual_credit', 'success_metric')
-    list_filter = ('department', 'stage', 'visible_to_groups')
-    list_editable = ('credit_weight', 'is_manual_credit')
-    filter_horizontal = ('visible_to_groups',)
+    list_display = ('label', 'department', 'stage', 'get_assigned_weights', 'success_metric')
+    list_filter = ('department', 'stage')
+    search_fields = ('label', 'field_name')
     
+    # THIS puts the Weight Table inside the Metric Page
+    inlines = [MetricWeightInline]
+
     fieldsets = (
         ('Basic Info', {
-            'fields': ('label', 'field_name', 'department', 'stage', 'visible_to_groups')
+            'fields': ('label', 'field_name', 'department', 'stage', 'success_metric')
         }),
-        ('Logic & Thresholds', {
-            'fields': ('default_threshold', 'success_metric') 
+        ('Logic', {
+            'fields': ('default_threshold',) 
         }),
-        ('Credit System', {
-            'fields': ('is_manual_credit', 'credit_weight'),
-            'description': 'Check "Manual" to lock this number. Uncheck to let the system auto-balance it to reach 100%.'
+        ('Visibility Filter', {
+            'fields': ('visible_to_groups',),
+            'description': 'Use this to tag groups broadly. Use the table below to set specific weights.'
         }),
     )
 
-    @admin.display(description='User Groups')
-    def get_groups(self, obj):
-        return ", ".join([g.name for g in obj.visible_to_groups.all()])
+    filter_horizontal = ('visible_to_groups',)
 
-    def save_related(self, request, form, formsets, change):
-        """
-        Triggered AFTER the Many-to-Many 'visible_to_groups' are saved.
-        This is the safe place to run calculations.
-        """
-        super().save_related(request, form, formsets, change)
-        
-        # Run the re-balancing logic
-        obj = form.instance
-        self.rebalance_credits(obj)
-
-    def rebalance_credits(self, current_metric):
-        """
-        The Logic:
-        For every group this metric touches, ensure that Dept+Stage+Group sums to 100.
-        """
-        department = current_metric.department
-        stage = current_metric.stage
-        groups = current_metric.visible_to_groups.all()
-
-        if not groups:
-            return 
-
-        # Iterate over every group to ensure that "ID Pre-Sales" sums to 100 
-        # AND "DM Pre-Sales" sums to 100, even if they share this metric.
-        for group in groups:
-            # 1. Get the "Team" (All metrics for this specific bucket)
-            team_metrics = Metric.objects.filter(
-                department=department, 
-                stage=stage, 
-                visible_to_groups=group
-            ).distinct()
-
-            # 2. Separate into "Fixed" (Manual) and "Flexible" (Auto)
-            manuals = team_metrics.filter(is_manual_credit=True)
-            autos = team_metrics.filter(is_manual_credit=False)
-
-            # 3. Calculate the available pool
-            # (Handle None result if no manuals exist)
-            manual_sum = manuals.aggregate(Sum('credit_weight'))['credit_weight__sum'] or 0
-            remaining_pool = 100 - manual_sum
-            
-            # 4. Distribute the pool
-            auto_count = autos.count()
-            
-            if auto_count > 0:
-                # Calculate new weight (e.g., 80 / 4 = 20)
-                # Use max(0, ...) to prevent negative scores if Manuals > 100
-                new_weight = max(0, remaining_pool / auto_count)
-                
-                # 5. Apply the update
-                autos.update(credit_weight=new_weight)
+    @admin.display(description="Configured Weights")
+    def get_assigned_weights(self, obj):
+        # Shows a summary in the list view: "ID (10), DM (5)"
+        return ", ".join([f"{w.user_group.name}: {w.factor}" for w in obj.metricweight_set.all()])

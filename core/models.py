@@ -132,9 +132,36 @@ class Metric(models.Model):
     # ManyToMany because "Key Plans" might be visible to both 'ID' and 'DH'
     visible_to_groups = models.ManyToManyField(UserGroup, blank=True)
 
-    # Credit System (Phase 2 Prep)
-    is_manual_credit = models.BooleanField(default=False)
-    credit_weight = models.FloatField(default=0.0) # Auto-calculated
-
     def __str__(self):
         return f"{self.label} ({self.department})"
+
+class MetricWeight(models.Model):
+    """
+        This table solves multiple user group to one metrics problem.
+        It links a specific Metric to a specific Group with a specific Importance.
+    """
+    metric = models.ForeignKey(Metric, on_delete=models.CASCADE)
+    user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE)
+    
+    # 10 Levels of Importance (as you requested)
+    WEIGHT_CHOICES = [
+        (1, '1 - Minimal'), 
+        (2, '2 - Very Low'), 
+        (3, '3 - Low'),
+        (4, '4 - Low-Medium'), 
+        (5, '5 - Medium (Standard)'),
+        (6, '6 - Medium-High'), 
+        (7, '7 - High'), 
+        (8, '8 - Very High'),
+        (9, '9 - Critical'), 
+        (10, '10 - Maximum Priority'),
+    ]
+    
+    factor = models.IntegerField(choices=WEIGHT_CHOICES, default=1, help_text="Importance relative to other tasks for THIS group.")
+
+    class Meta:
+        unique_together = ('metric', 'user_group') # Prevents duplicate rules
+        verbose_name = "Group Weight"
+
+    def __str__(self):
+        return f"{self.user_group} - {self.factor}"

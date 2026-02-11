@@ -1,0 +1,163 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-0">{{ project.project_name }}</h2>
+            <p class="text-muted mb-0">Project Code: <span class="fw-bold">{{ project.project_code }}</span> | Stage: <span class="badge bg-info text-dark">{{ project.stage }}</span></p>
+        </div>
+        <div>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-2"></i>Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body py-3 d-flex align-items-center">
+            <label class="fw-bold text-muted me-3">Viewing Scorecard As:</label>
+
+            <form method="get" class="d-flex align-items-center" style="max-width: 300px;">
+                <select name="metric_role" class="form-select form-select-sm me-2 shadow-sm" onchange="this.form.submit()">
+                    {% for group in all_groups %}
+                        <option value="{{ group.department.name }} - {{ group.name }}" 
+                                {% if group.id == selected_group_id %}selected{% endif %}>
+                            {{ group.department.name }} - {{ group.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% if user_group %}
+                <span class="ms-3 badge bg-white text-primary border px-3 py-2">
+                    <i class="fas fa-balance-scale me-2"></i>Total Weight Factors: {{ total_factor }}
+                </span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% else %}
+        <div class="row">
+            
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0 fw-bold text-primary">Weighted Task List</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-uppercase small text-muted">
+                                <tr>
+                                    <th class="ps-4">Metric / Task</th>
+                                    <th class="text-center">Importance</th>
+                                    <th class="text-center">Weight %</th>
+                                    <th class="text-center">Actual / Target</th> 
+                                    <th class="text-center">Status</th>
+                                    <th class="text-end pe-4">Points Earned</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in scores %}
+                                <tr>
+                                    <td class="ps-4 fw-bold text-dark">{{ row.metric }}</td>
+                                    
+                                    <td class="text-center">
+                                        <span class="badge rounded-pill bg-light text-dark border">{{ row.factor }}</span>
+                                    </td>
+                                    
+                                    <td class="text-center fw-bold text-primary">{{ row.target_percent }}%</td>
+                                    
+                                    <td class="text-center text-muted small">
+                                        {{ row.actual }} / {{ row.target }}
+                                    </td>
+
+                                    <td class="text-center">
+                                        {% if row.points_earned > 0 %}
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success px-2">
+                                                {{ row.status_text }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-muted small">-</span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <td class="text-end pe-4 fw-bold">{{ row.points_earned }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        <div class="mb-2"><i class="fas fa-folder-open fa-2x opacity-25"></i></div>
+                                        No weighted metrics found for <strong>{{ user_group.name }}</strong> in {{ metric_stage }} Stage.
+                                        <br><small>Go to Admin > Metrics to configure weights.</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="bg-light fw-bold">
+                                <tr>
+                                    <td colspan="3" class="ps-4 text-end">TOTALS:</td>
+                                    <td class="text-center"></td>
+                                    <td class="text-center">100%</td>
+                                    <td class="text-end pe-4 fs-5 text-primary">{{ project_total }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm text-center h-100">
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center">
+                        <h5 class="text-muted text-uppercase small fw-bold mb-4">Total Performance Score</h5>
+                        
+                        <div class="position-relative">
+                            {% with score=project_total|default:0 %}
+                                {% if score >= 80 %}
+                                    <div class="score-circle border-success">
+                                {% elif score >= 50 %}
+                                    <div class="score-circle border-warning">
+                                {% else %}
+                                    <div class="score-circle border-danger">
+                                {% endif %}
+                            {% endwith %}
+
+                                <div>
+                                    <h1 class="display-3 fw-bold mb-0 text-dark">{{ project_total_int }}</h1>
+                                    <small class="text-muted">/ 100</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <style>
+                            .score-circle {
+                                width: 180px; 
+                                height: 180px; 
+                                border-radius: 50%; 
+                                border-width: 12px; 
+                                border-style: solid;
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center; 
+                                transition: all 0.3s ease;
+                            }
+                            .border-success { border-color: #198754 !important; }
+                            .border-warning { border-color: #ffc107 !important; }
+                            .border-danger { border-color: #dc3545 !important; }
+                        </style>
+
+                        <div class="mt-4 px-3">
+                            <span class="badge bg-light text-dark border mb-2">{{ user_group.department.name }}</span>
+                            <p class="text-muted small">
+                                This score is calculated specifically for <strong>{{ user_group.name }}</strong> priorities.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

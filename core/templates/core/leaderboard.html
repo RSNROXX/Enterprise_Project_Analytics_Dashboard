@@ -1,0 +1,229 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-primary">🏆 Performance Leaderboard</h1>
+        <p class="text-muted">Ranking based on Total Earned Credits (Sum of all Project Scores)</p>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body bg-light">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="small fw-bold text-muted">LEAGUE / ROLE</label>
+                    <select name="role" class="form-select shadow-sm" onchange="this.form.submit()">
+                        {% for r in all_roles %}
+                            <option value="{{ r }}" {% if r == selected_role %}selected{% endif %}>{{ r }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="small fw-bold text-muted">REGIONS (SBUs)</label>
+                    <div class="d-flex flex-wrap gap-2 pt-1">
+                        
+                        {% for sbu in sbu_options %}
+                        <div class="form-check form-check-inline small">
+                            <input class="form-check-input" type="checkbox" name="sbu" value="{{ sbu }}" 
+                                id="sbu_{{ forloop.counter }}" 
+                                {% if sbu in selected_sbus %}checked{% endif %}
+                                onchange="this.form.submit()">
+                            <label class="form-check-label" for="sbu_{{ forloop.counter }}">{{ sbu }}</label>
+                        </div>
+                        {% endfor %}
+                        
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="small fw-bold text-muted">DATE RANGE (Project Start/Login)</label>
+                    <div class="input-group input-group-sm shadow-sm">
+                        <input type="date" name="start" class="form-control" value="{{ start_date }}">
+                        <span class="input-group-text">to</span>
+                        <input type="date" name="end" class="form-control" value="{{ end_date }}">
+                        <button class="btn btn-primary" type="submit">Apply</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="alert alert-danger text-center">{{ error }}</div>
+    {% else %}
+        
+        {% if leaderboard|length >= 3 %}
+        <div class="row justify-content-center mb-5 align-items-end">
+            <div class="col-md-3 text-center">
+                <div class="card border-0 shadow-sm mb-3" style="transform: scale(0.9);">
+                    <div class="card-body">
+                        <h2 class="text-secondary fw-bold">#2</h2>
+                        <h5 class="text-truncate">{{ leaderboard.1.name }}</h5>
+                        <h3 class="fw-bold text-primary">{{ leaderboard.1.total_score }}</h3>
+                        <small class="text-muted">Credits</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="card border-0 shadow mb-3 border-warning" style="border-top-width: 5px;">
+                    <div class="card-body py-5">
+                        <h1 class="text-warning fw-bold">👑 #1</h1>
+                        <h4 class="text-truncate fw-bold">{{ leaderboard.0.name }}</h4>
+                        <h2 class="display-4 fw-bold text-primary">{{ leaderboard.0.total_score }}</h2>
+                        <span class="badge bg-light text-dark border">{{ leaderboard.0.projects }} Projects</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="card border-0 shadow-sm mb-3" style="transform: scale(0.9);">
+                    <div class="card-body">
+                        <h2 class="text-secondary fw-bold">#3</h2>
+                        <h5 class="text-truncate">{{ leaderboard.2.name }}</h5>
+                        <h3 class="fw-bold text-primary">{{ leaderboard.2.total_score }}</h3>
+                        <small class="text-muted">Credits</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card border-0 shadow-lg overflow-hidden">
+            <table class="table table-hover align-middle">
+                <thead class="table-light small text-muted text-uppercase">
+                    <tr>
+                        <th class="ps-4">Rank</th>
+                        <th>User / Email</th>
+                        <th class="text-center">Projects Active</th>
+                        <th class="text-center">Performance Percentile</th> <th class="text-end pe-4">Total Earned Credits</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in leaderboard %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-muted">#{{ row.rank }}</td>
+                        
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-circle bg-light text-primary fw-bold me-3 rounded-circle d-flex align-items-center justify-content-center border" style="width: 40px; height: 40px;">
+                                    {{ row.name|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <a href="{% url 'dashboard' %}?view={{ link_view }}&{{ link_param }}={{ row.name }}&start={{ start_date }}&end={{ end_date }}" 
+                                    class="fw-bold text-dark text-decoration-none stretched-link-custom hover-primary">
+                                        {{ row.name }}
+                                    </a>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border">{{ row.projects }} Projects</span>
+                        </td>
+
+                        <td class="text-center" style="width: 25%;">
+                            <div class="d-flex flex-column justify-content-center h-100">
+                                
+                                <div class="mb-1">
+                                    {% if row.percentile >= 90 %}
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success">Top 10% ({{ row.percentile }}%ile)</span>
+                                    {% elif row.percentile >= 50 %}
+                                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary">Top 50% ({{ row.percentile }}%ile)</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border">{{ row.percentile }}%ile</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="progress" style="height: 4px; width: 100px; margin: 0 auto;">
+                                    <div class="progress-bar {% if row.percentile >= 80 %}bg-success{% elif row.percentile >= 50 %}bg-primary{% else %}bg-secondary{% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ row.percentile }}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="text-end pe-4">
+                            <a href="#" class="text-decoration-none" data-bs-toggle="modal" data-bs-target="#breakdownModal{{ forloop.counter }}">
+                                <h5 class="fw-bold text-primary mb-0 hover-scale">{{ row.total_score }}</h5>
+                                <small class="text-muted d-block" style="font-size: 0.75rem; cursor: pointer;">
+                                    View Breakdown <i class="fas fa-chevron-down ms-1"></i>
+                                </small>
+                            </a>
+
+                            <div class="modal fade text-start" id="breakdownModal{{ forloop.counter }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content border-0 shadow">
+                                        <div class="modal-header bg-primary text-white">
+                                            <h5 class="modal-title fs-6">
+                                                <i class="fas fa-chart-pie me-2"></i>Performance Breakdown: <strong>{{ row.name }}</strong>
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body p-0">
+                                            <table class="table table-striped table-hover mb-0">
+                                                <thead class="bg-light small text-muted text-uppercase">
+                                                    <tr>
+                                                        <th class="ps-4">Project Name</th>
+                                                        <th class="text-center">Stage</th>
+                                                        <th class="text-center">SBU</th>
+                                                        <th class="text-end pe-4">Credits Earned</th>
+                                                        <th></th> </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for p in row.breakdown %}
+                                                        <tr>
+                                                            <td class="ps-4 flex-wrap text-dark">{{ p.project_name }}</td>
+                                                            <td class="text-center">
+                                                                <span class="badge bg-light text-dark border">{{ p.stage }}</span>
+                                                            </td>
+                                                            <td class="text-center small text-muted">{{ p.sbu }}</td>
+                                                            <td class="text-end pe-4 fw-bold text-primary">{{ p.score }}</td>
+                                                            
+                                                            <td class="text-end pe-3">
+                                                                <td class="text-end pe-3">
+                                                                    {% if p.code %}
+                                                                        <a href="{% url 'project_scorecard' p.code %}?metric_role={{ selected_role }}" 
+                                                                        class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;">
+                                                                            Audit <i class="fas fa-arrow-right ms-1"></i>
+                                                                        </a>
+                                                                    {% else %}
+                                                                        <span class="text-muted small">No Code</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                            </td>
+                                                        </tr>
+
+                                                        {% empty %}
+                                                        <tr><td colspan="5" class="text-center p-3">No active projects found.</td></tr>
+                                                    {% endfor %}
+
+                                                </tbody>
+                                                <tfoot class="bg-light fw-bold">
+                                                    <tr>
+                                                        <td colspan="3" class="text-end pe-3">TOTAL:</td>
+                                                        <td class="text-end pe-4 text-primary fs-5">{{ row.total_score }}</td>
+                                                        <td></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            No data found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

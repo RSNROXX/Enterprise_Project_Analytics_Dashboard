@@ -1,4 +1,12 @@
 # Keeps METRICS_CONFIG & EXCEL_COL_MAP  (CHANGES NEED TO MADE FOR COL NAMES)
+DEPT_CHOICES = (
+    ('Marketing', 'Marketing'),
+    ('Sales', 'Sales'),
+    ('Design', 'Design'),
+    ('Operations', 'Operations'),
+    ('Purchase', 'Purchase'),
+    ('Finance', 'Finance'),
+)
 
 DEPT_PEOPLE_MAP = {
     'Marketing': [
@@ -10,17 +18,17 @@ DEPT_PEOPLE_MAP = {
         ('s_lead', 'Sales Lead'),
     ],
     'Design': [
-        ('d_dh', 'Design Head (DH)'),
-        ('d_dm', 'Design Manager (DM)'),
-        ('d_id', 'Interior Designer (ID)'),
-        ('d_3d', '3D Visualizer'),
+        ('d_dh', 'DH'),
+        ('d_dm', 'DM'),
+        ('d_id', 'ID'),
+        ('d_3d', '3D'),
     ],
     'Operations': [
         ('o_head', 'Cluster/BU Head'),
-        ('o_pm', 'Project Manager (PM)'),
-        ('o_om', 'Ops Manager (OM)'),
-        ('o_ss', 'Site Supervisor (SS)'),
-        ('o_mep', 'MEP Engineer'),
+        ('o_pm', 'SPM/PM'),
+        ('o_om', 'SOM/OM'),
+        ('o_ss', 'SS'),
+        ('o_mep', 'MEP'),
         ('o_csc', 'CSC'),
     ],
     'Purchase': [
@@ -86,27 +94,25 @@ METRICS_CONFIG = {
         ]
     },
     "Operations": [
-        # BU Head & SPM/PM
-        {"label": "GRNs/SRNs Approved", "field": "grn_approved", "def": 3.0, "roles": ["BU Head", "SPM", "PM"]}, 
-        
         # MEP
-        {"label": "MEP Drawings", "field": "mep_drawings", "def": 3.0, "roles": ["MEP"]},
+        {"label": "MEP Drawings", "field": "mep_drawings", "def": 3.0, "roles": ["BU Head", "MEP"]},
 
         # SPM / PM
-        {"label": "WPRs Downloaded", "field": "wpr_download", "def": 3.0, "roles": ["SPM", "PM"]},
-        {"label": "WPRs Shared", "field": "wpr_shared", "def": 3.0, "roles": ["SPM", "PM"]},
-        {"label": "Invoices / Receipts", "field": "invoices", "def": 1.0, "roles": ["SPM", "PM"]},
+        {"label": "GRNs/SRNs Approved", "field": "grn_approved", "def": 3.0, "roles": ["BU Head", "SPM", "PM"]},
+        {"label": "WPRs Downloaded", "field": "wpr_download", "def": 3.0, "roles": ["BU Head", "SPM", "PM"]},
+        {"label": "WPRs Shared", "field": "wpr_shared", "def": 3.0, "roles": ["BU Head", "SPM", "PM"]},
+        {"label": "Invoices / Receipts", "field": "invoices", "def": 1.0, "roles": ["BU Head", "SPM", "PM"]},
 
         # SS
-        {"label": "DPR Added (% days)", "field": "dpr_ratio", "def": 0.5, "roles": ["SS"]},
-        {"label": "GRNs/SRNs Created", "field": "grn_created", "def": 3.0, "roles": ["SS"]},
+        {"label": "DPR Added (% days)", "field": "dpr_ratio", "def": 0.5, "roles": ["BU Head", "SS"]},
+        {"label": "GRNs/SRNs Created", "field": "grn_created", "def": 3.0, "roles": ["BU Head", "SS"]},
 
         # General / Unassigned (Will show in All Roles, but hidden for specific roles unless added)
-        {"label": "Site Images", "field": "site_images", "def": 30.0, "roles": ["SS", "PM"]},
-        {"label": "Handover Documents", "field": "handover_docs", "def": 3.0, "roles": ["PM"]},
-        {"label": "Unique Weekly Tasks", "field": "weekly_tasks", "def": 10.0, "roles": ["PM"]},
-        {"label": "Unique Daily Tasks", "field": "daily_tasks", "def": 30.0, "roles": ["SS", "PM"]},
-        {"label": "Manpower Ratio", "field": "manpower_ratio", "def": 0.66, "roles": ["SS", "PM"]},
+        {"label": "Site Images", "field": "site_images", "def": 30.0, "roles": ["BU Head", "SS", "PM"]},
+        {"label": "Handover Documents", "field": "handover_docs", "def": 3.0, "roles": ["BU Head", "PM"]},
+        {"label": "Unique Weekly Tasks", "field": "weekly_tasks", "def": 10.0, "roles": ["BU Head", "PM"]},
+        {"label": "Unique Daily Tasks", "field": "daily_tasks", "def": 30.0, "roles": ["BU Head", "SS", "PM"]},
+        {"label": "Manpower Ratio", "field": "manpower_ratio", "def": 0.66, "roles": ["BU Head", "SS", "PM"]},
     ],
 
     "Marketing": [],

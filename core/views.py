@@ -1,13 +1,13 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from io import BytesIO
-from django.shortcuts import render, redirect, get_object_or_404  #type:ignore
-from django.contrib import messages                             #type:ignore
-from django.http import HttpResponse                            #type:ignore
-from django.db.models import Q                                  #type:ignore
+from django.shortcuts import render, redirect, get_object_or_404    #type:ignore
+from django.contrib import messages                                 #type:ignore
+from django.http import HttpResponse                                #type:ignore
+from django.db.models import Q, Sum, Count, F                       #type:ignore
 
 from .forms import UploadFileForm
-from .models import Project, Metric, Department, UserGroup 
+from .models import Project, Metric, Department, UserGroup, MetricWeight
 from .constants import EXCEL_COL_MAP    
 
 # ==============================================================================
@@ -43,12 +43,21 @@ def _fetch_metrics_from_db(view_mode, stage, role_filter):
         return []
 
     # FETCH EVERYTHING for this department & stage
-    metrics_qs = Metric.objects.filter(department=dept, stage=stage).prefetch_related('visible_to_groups')
+    # UPDATE: Prefetch 'metricweight_set' so we can check weights too
+    metrics_qs = Metric.objects.filter(department=dept, stage=stage)\
+                               .prefetch_related('visible_to_groups', 'metricweight_set__user_group')
 
     metrics_list = []
     for m in metrics_qs:
-        # Store the allowed groups so we can sort them later in Python
-        allowed_groups = [g.name for g in m.visible_to_groups.all()]
+        # 1. Get groups from the "Visibility Filter" box (Old way)
+        m2m_groups = {g.name for g in m.visible_to_groups.all()}
+        
+        # 2. Get groups from the "Weight Table" (New way)
+        # If you gave it a weight > 0, it IS visible to that group!
+        weight_groups = {w.user_group.name for w in m.metricweight_set.all() if w.factor > 0}
+        
+        # 3. Combine them (Union) - This ensures NO duplicates
+        allowed_groups = list(m2m_groups | weight_groups)
         
         metrics_list.append({
             'label': m.label,
@@ -56,7 +65,7 @@ def _fetch_metrics_from_db(view_mode, stage, role_filter):
             'def': m.default_threshold,
             'success_cat': m.success_metric.name if m.success_metric else None,
             'success_color': m.success_metric.color if m.success_metric else 'secondary', 
-            'allowed_groups': allowed_groups, # New: We need this for sorting
+            'allowed_groups': allowed_groups, # Now contains both sources
             'id': m.pk 
         })
     return metrics_list
@@ -72,11 +81,13 @@ def _apply_people_filters(queryset, view_mode, request):
     if view_mode == 'Sales':
         queryset = _filter(queryset, 'sales_head', 'f_s_head')
         queryset = _filter(queryset, 'sales_lead', 'f_s_lead')
+
     elif view_mode == 'Design':
         queryset = _filter(queryset, 'design_dh', 'f_d_dh')
         queryset = _filter(queryset, 'design_dm', 'f_d_dm')
         queryset = _filter(queryset, 'design_id', 'f_d_id')
         queryset = _filter(queryset, 'design_3d', 'f_d_3d')
+
     elif view_mode == 'Operations':
         queryset = _filter(queryset, 'ops_head', 'f_o_head')
         queryset = _filter(queryset, 'ops_pm', 'f_o_pm')
@@ -167,6 +178,7 @@ def upload_view(request):
                 xls = pd.ExcelFile(file)
                 sheet_map = {'sales': '', 'design': '', 'operation': ''}
                 
+                # Find sheets (Case insensitive)
                 for name in xls.sheet_names:
                     lower = str(name).lower()
                     if 'sales' in lower: sheet_map['sales'] = str(name)
@@ -175,86 +187,133 @@ def upload_view(request):
 
                 project_data_map = {}
 
-                def clean_str(val): return '' if pd.isnull(val) or str(val).strip().lower() == 'nan' else str(val).strip()
-                def parse_date(val): return pd.to_datetime(val).date() if pd.notnull(val) else None
+                # --- CLEANING FUNCTIONS ---
+                def clean_str(val): 
+                    if pd.isnull(val): return ''
+                    s = str(val).strip()
+                    return '' if s.lower() == 'nan' else s
+
+                def parse_date(val): 
+                    return pd.to_datetime(val).date() if pd.notnull(val) else None
+
                 def clean_num(val):
                     if pd.isnull(val): return 0.0
                     try: return float(str(val).replace('%','').replace(',','').strip())
                     except: return 0.0
                 
-                def get_clean_id(row):
-                    for c in ['Project Code','project_code','Code','code','Lead Id']:
-                        if c in row.index and pd.notnull(row[c]):
-                            v = str(row[c]).strip().upper()
+                def get_clean_id(row_dict):
+                    # Check common ID column names (lowercase)
+                    for c in ['project code','code','lead id']:
+                        if c in row_dict and row_dict[c]:
+                            v = str(row_dict[c]).strip().upper()
                             if v and v != 'NAN': return v.replace('.0','')
                     return None
 
                 def process_sheet(sheet_name, sheet_type):
                     if not sheet_name: return
                     df = pd.read_excel(file, sheet_name=sheet_name)
-                    df.columns = [str(c).strip() for c in df.columns]
+                    
+                    # 1. FORCE LOWERCASE HEADERS (Crucial Fix)
+                    df.columns = [str(c).strip().lower() for c in df.columns]
 
+                    # 2. CALCULATED COLUMNS (Updated for Lowercase Headers)
+                    # We must check for lowercase versions of the columns
                     if sheet_type == 'design':
-                        if 'No Key Plans Spaces' in df.columns and 'Mapped Spaces' in df.columns:
-                            df['Key Plans Ratio'] = pd.to_numeric(df['No Key Plans Spaces'], errors='coerce').fillna(0) / pd.to_numeric(df['Mapped Spaces'], errors='coerce').replace(0,1).fillna(0)
-                        if 'Layouts' in df.columns and 'Furniture Layouts' in df.columns:
-                            df['Other Layouts'] = df['Layouts'] - df['Furniture Layouts']
+                        if 'no key plans spaces' in df.columns and 'mapped spaces' in df.columns:
+                            df['key plans ratio'] = pd.to_numeric(df['no key plans spaces'], errors='coerce').fillna(0) / pd.to_numeric(df['mapped spaces'], errors='coerce').replace(0,1).fillna(0)
+                        if 'layouts' in df.columns and 'furniture layouts' in df.columns:
+                            df['other layouts'] = df['layouts'] - df['furniture layouts']
                     
                     if sheet_type == 'operation':
-                        ops_calcs = [('WPR Half Week','WPR Download Weeks','Weeks Till Date'), ('Manpower Ratio','Actual Manpower','Planned Manpower'),
-                                     ('DPR Ratio','DPR Added Days','Days Till Date'), ('Manpower Day Ratio','Manpower Added Days','Days Till Date')]
+                        ops_calcs = [
+                            ('wpr half week','wpr download weeks','weeks till date'), 
+                            ('manpower ratio','actual manpower','planned manpower'),
+                            ('dpr ratio','dpr added days','days till date'), 
+                            ('manpower day ratio','manpower added days','days till date')
+                        ]
                         for t, n, d in ops_calcs:
                             if n in df.columns and d in df.columns:
                                 df[t] = (pd.to_numeric(df[n], errors='coerce') / pd.to_numeric(df[d], errors='coerce').replace(0,1)).fillna(0)
 
-                    for _, row in df.iterrows():
+                    # 3. ROW ITERATION
+                    # We convert the row to a dictionary for easier access
+                    for _, row_series in df.iterrows():
+                        # Create a lowercase-key dictionary for this row
+                        row = {k: v for k, v in row_series.items()}
+                        
                         p_id = get_clean_id(row)
                         if not p_id: continue
-                        if p_id not in project_data_map: project_data_map[p_id] = {'project_code': p_id}
-                        
-                        meta = {
-                            'project_name': ['Project Name'], 'sbu': ['SBU'], 'stage': ['Stage', 'Status'],
-                            'sales_head': ['Sales Head'], 'sales_lead': ['Sales Lead'],
-                            'design_dh': ['Design Head', 'DH'], 'design_dm': ['Design Lead', 'DM'], 'design_id': ['Design ID', 'ID'], 'design_3d': ['3D Visualizer', '3D'],
-                            'ops_head': ['Ops Head'], 'ops_pm': ['Project Manager', 'SPM/PM'], 'ops_om': ['Ops Manager', 'SOM/OM'], 'ops_ss': ['Site Supervisor', 'SS'],
-                            'ops_mep': ['MEP'], 'ops_csc': ['CSC']
-                        }
-                        for db, opts in meta.items():
-                            for col in opts:
-                                if col in row.index: 
-                                    v = clean_str(row[col])
-                                    if v: project_data_map[p_id][db] = v
-                                    break
-                        
-                        dates = {'login_date': ['Project Login Date'], 'start_date': ['Project Start Date'], 'end_date': ['Project End Date']}
-                        for db, opts in dates.items():
-                            for col in opts:
-                                if col in row.index: 
-                                    v = parse_date(row[col])
-                                    if v: project_data_map[p_id][db] = v
-                                    break
 
+                        if p_id not in project_data_map: 
+                            project_data_map[p_id] = {'project_code': p_id}
+                        
+                        # --- A. METADATA & PEOPLE MAPPING (The Fuzzy Logic) ---
+                        meta_config = {
+                            # Meta
+                            'project_name': ['project name', 'name'],
+                            'sbu':          ['sbu', 'region'],
+                            'stage':        ['stage', 'status'],
+                            
+                            # People
+                            'sales_head':   ['sales head', 's head'],
+                            'sales_lead':   ['sales lead', 's lead'],
+                            'design_dh':    ['dh', 'design head'],
+                            'design_dm':    ['dm', 'design lead', 'design manager'],
+                            'design_id':    ['id', 'design id'],
+                            'design_3d':    ['3d', '3d visualizer'],
+                            'ops_head':     ['cluster/bu head', 'ops head'],
+                            'ops_pm':       ['spm/pm', 'project manager', 'pm'],
+                            'ops_om':       ['som/om', 'ops manager', 'om'],
+                            'ops_ss':       ['ss', 'site supervisor'],
+                            'ops_mep':      ['mep'],
+                            'ops_csc':      ['csc']
+                        }
+
+                        for db_field, options in meta_config.items():
+                            for opt in options:
+                                if opt in row:
+                                    val = clean_str(row[opt])
+                                    if val: 
+                                        project_data_map[p_id][db_field] = val
+                                    break # Stop after finding the first match
+
+                        # --- B. DATES ---
+                        date_map = {'login_date': 'project login date', 'start_date': 'project start date', 'end_date': 'project end date'}
+                        for db, xl in date_map.items():
+                            if xl in row:
+                                v = parse_date(row[xl])
+                                if v: project_data_map[p_id][db] = v
+
+                        # --- C. METRICS (The Fix for "0 Values") ---
+                        # We iterate over EXCEL_COL_MAP, but we LOWERCASE the key first
                         full_map = EXCEL_COL_MAP.copy()
                         full_map.update({
                             'Key Plans Ratio':'key_plans_ratio', 'Other Layouts':'other_layouts', 
                             'WPR Half Week':'wpr_half_week', 'Manpower Ratio':'manpower_ratio', 
                             'DPR Ratio':'dpr_ratio', 'Manpower Day Ratio':'manpower_day_ratio'
                         })
-                        
-                        for xl, db in full_map.items():
-                            if xl in row.index:
-                                v = clean_num(row[xl])
-                                if v != 0 or db not in project_data_map[p_id]: 
-                                    project_data_map[p_id][db] = v
+
+                        for xl_col, db_field in full_map.items():
+                            xl_lower = str(xl_col).strip().lower() # <--- THE FIX
+                            
+                            if xl_lower in row:
+                                v = clean_num(row[xl_lower])
+                                # Only overwrite if value > 0 or not yet set
+                                if v != 0 or db_field not in project_data_map[p_id]:
+                                    project_data_map[p_id][db_field] = v
 
                 process_sheet(sheet_map['sales'], 'sales')
                 process_sheet(sheet_map['design'], 'design')
                 process_sheet(sheet_map['operation'], 'operation')
 
-                Project.objects.all().delete()
-                Project.objects.bulk_create([Project(**d) for d in project_data_map.values()])
+                # SAFE SAVE (Atomic Transaction recommended in production, but simplified here)
+                if project_data_map:
+                    Project.objects.all().delete()
+                    Project.objects.bulk_create([Project(**d) for d in project_data_map.values()])
+                    messages.success(request, f"Restored {len(project_data_map)} projects. Values should be back.")
+                else:
+                    messages.error(request, "No valid project data found in file.")
                 
-                messages.success(request, f"Successfully processed {len(project_data_map)} projects.")
                 return redirect('dashboard')
 
             except Exception as e:
@@ -299,14 +358,25 @@ def dashboard_view(request):
                 'project_list': proj_data
             }
 
-            # --- LOGIC RESTORED: Primary vs Secondary ---
-            # If "All Roles" -> Show Everything in Primary
-            # If Role Selected -> Show Matching in Primary, Others in Secondary ("See More")
+            # --- ROBUST FILTER LOGIC ---
             is_primary = False
+            
             if role_filter == "All Roles":
                 is_primary = True
-            elif role_filter in m['allowed_groups']:
-                is_primary = True
+            elif not m['allowed_groups']:
+                # If NO weights/visibility set, default to Secondary (Safety Net)
+                is_primary = False 
+            else:
+                # Fuzzy Match: Check if "Sales Lead" is in "Sales - Sales Lead"
+                # OR if "ID" is in "Design - ID"
+                # This ensures partial matches work
+                r_clean = str(role_filter).lower().strip()
+                
+                for group_name in m['allowed_groups']:
+                    g_clean = str(group_name).lower().strip()
+                    if r_clean in g_clean or g_clean in r_clean:
+                        is_primary = True
+                        break
             
             if is_primary:
                 results_prim.append(item)
@@ -583,3 +653,212 @@ def project_detail(request, pk):
     return render(request, 'core/project_detail.html', {
         'project': project,
     })
+
+# ==============================================================================
+# 7. PROJECT SCORECARD (The Credit System)
+# ==============================================================================
+def project_scorecard_view(request, project_code):
+    project = get_object_or_404(Project, project_code=project_code)
+    
+    # 1. Get role from URL
+    raw_role_param = request.GET.get('metric_role', 'Design - ID')
+    
+    # 2. Extract search term (e.g., "ID" from "Design - ID")
+    search_term = raw_role_param.split(' - ')[-1] if ' - ' in raw_role_param else raw_role_param
+    
+    # 3. Find UserGroup and handle "None" safety
+    user_group = UserGroup.objects.filter(name__icontains=search_term).first()
+    all_groups = UserGroup.objects.select_related('department').order_by('department__name', 'name')
+    
+    if not user_group:
+         return render(request, 'core/project_scorecard.html', {
+            'project': project, 
+            'error': f"Role '{search_term}' not found.",
+            'all_groups': all_groups,
+            'selected_role_full': raw_role_param 
+        })
+
+    # 4. Stage & Metric Logic (Normalized)
+    raw_stage = str(project.stage).strip().lower()
+    metric_stage_key = 'Post' if any(x in raw_stage for x in ['post', 'exec', 'ops']) else 'Pre'
+    
+    metrics = Metric.objects.filter(stage=metric_stage_key, department=user_group.department).prefetch_related('metricweight_set')
+
+    # 5. Calculation Engine
+    total_factor_sum = 0
+    temp_list = []
+    for metric in metrics:
+        weight_obj = metric.metricweight_set.filter(user_group=user_group).first()
+        if weight_obj and weight_obj.factor > 0:
+            total_factor_sum += weight_obj.factor
+            current_value = getattr(project, metric.field_name, 0.0)
+            threshold = metric.default_threshold
+            raw_progress = (current_value / threshold) if threshold > 0 else (1.0 if current_value > 0 else 0.0)
+            
+            temp_list.append({
+                'label': metric.label, 'factor': weight_obj.factor, 'raw_value': current_value,
+                'threshold': threshold, 'capped_progress': min(raw_progress, 1.0),
+                'display_percentage': int(raw_progress * 100)
+            })
+
+    final_scores = []
+    earned_score_total = 0
+    clean_fmt = lambda val: int(val) if val % 1 == 0 else round(val, 1)
+
+    for item in temp_list:
+        target_pct = (item['factor'] / total_factor_sum * 100) if total_factor_sum > 0 else 0
+        points = item['capped_progress'] * target_pct
+        earned_score_total += points
+        final_scores.append({
+            'metric': item['label'], 'factor': item['factor'], 'actual': clean_fmt(item['raw_value']),
+            'target': clean_fmt(item['threshold']), 'target_percent': round(target_pct, 1),
+            'status_text': f"{item['display_percentage']}%", 'points_earned': round(points, 1)
+        })
+
+    final_scores.sort(key=lambda x: x['factor'], reverse=True)
+
+    return render(request, 'core/project_scorecard.html', {
+        'project': project, 'user_group': user_group,
+        'selected_group_id': user_group.id, # Fixed ID for UI selection
+        'all_groups': all_groups, 'total_factor': total_factor_sum,
+        'scores': final_scores, 'project_total': round(earned_score_total, 1),
+        'project_total_int': int(round(earned_score_total, 0)),
+        'metric_stage': metric_stage_key
+    })
+
+# ==============================================================================
+# 8. LEADERBOARD VIEW (Gamification)
+# ==============================================================================
+def leaderboard_view(request):
+    # 1. Get Params
+    view_mode, start_str, end_str, start_dt, end_dt, _, _, _, _ = _get_request_params(request)
+    
+    # 2. Dynamic SBU Options
+    all_sbu_options = list(Project.objects.exclude(sbu__isnull=True).exclude(sbu="").values_list('sbu', flat=True).distinct())
+    all_sbu_options.sort()
+    if not all_sbu_options: all_sbu_options = ['North', 'South', 'East', 'Central']
+
+    if 'sbu' in request.GET: sbu_filter = request.GET.getlist('sbu')
+    else: sbu_filter = all_sbu_options 
+
+    # 3. Role Config
+    selected_role_name = request.GET.get('role', 'Sales Lead')
+    
+    ROLE_CONFIG = {
+        'Sales Lead':      {'field': 'sales_lead', 'url_param': 'f_s_lead', 'view': 'Sales'},
+        'Sales Head':      {'field': 'sales_head', 'url_param': 'f_s_head', 'view': 'Sales'},
+        'ID':              {'field': 'design_id',  'url_param': 'f_d_id',   'view': 'Design'},
+        '3D':              {'field': 'design_3d',  'url_param': 'f_d_3d',   'view': 'Design'},
+        'DM':              {'field': 'design_dm',  'url_param': 'f_d_dm',   'view': 'Design'},
+        'DH':              {'field': 'design_dh',  'url_param': 'f_d_dh',   'view': 'Design'},
+        'Cluster/BU Head': {'field': 'ops_head',   'url_param': 'f_o_head', 'view': 'Operations'},
+        'SPM/PM':          {'field': 'ops_pm',     'url_param': 'f_o_pm',   'view': 'Operations'},
+        'SOM/OM':          {'field': 'ops_om',     'url_param': 'f_o_om',   'view': 'Operations'},
+        'SS':              {'field': 'ops_ss',     'url_param': 'f_o_ss',   'view': 'Operations'},
+        'MEP':             {'field': 'ops_mep',    'url_param': 'f_o_mep',  'view': 'Operations'},
+        'CSC':             {'field': 'ops_csc',    'url_param': 'f_o_csc',  'view': 'Operations'},
+    }
+
+    simple_role_name = selected_role_name.split(' - ')[-1] if ' - ' in selected_role_name else selected_role_name
+    config = ROLE_CONFIG.get(simple_role_name)
+    
+    if not config:
+        return render(request, 'core/leaderboard.html', {'error': f"Role '{selected_role_name}' not supported.", 'all_roles': sorted(ROLE_CONFIG.keys())})
+
+    project_field = config['field']
+    user_group = UserGroup.objects.filter(name__icontains=simple_role_name).first()
+    if not user_group:
+         return render(request, 'core/leaderboard.html', {'error': f"User Group '{selected_role_name}' not found.", 'all_roles': sorted(ROLE_CONFIG.keys())})
+
+    # 5. Fetch Projects (Apply Filters & Exclude Test)
+    projects = Project.objects.filter(sbu__in=sbu_filter)\
+        .exclude(**{f"{project_field}__isnull": True})\
+        .exclude(**{f"{project_field}__exact": ""})\
+        .exclude(project_code__isnull=True)\
+        .exclude(project_code__exact="")\
+        .exclude(project_code="PS-02AUG23-BB1_TEST-SOMERSET-01")
+
+    projects = projects.filter(Q(login_date__range=[start_dt, end_dt]) | Q(start_date__range=[start_dt, end_dt])).distinct()
+
+    # 6. Scoring Engine
+    metrics = Metric.objects.filter(metricweight__user_group=user_group, metricweight__factor__gt=0).distinct().prefetch_related('metricweight_set')
+    stage_totals = {}
+    valid_metrics = []
+
+    for m in metrics:
+        weight_obj = m.metricweight_set.filter(user_group=user_group).first()
+        if weight_obj and weight_obj.factor > 0:
+            stage_totals[m.stage] = stage_totals.get(m.stage, 0) + weight_obj.factor
+            valid_metrics.append({'field': m.field_name, 'factor': weight_obj.factor, 'stage': m.stage, 'threshold': m.default_threshold})
+
+    # 7. Calculate Scores
+    leaderboard = {}
+    for proj in projects:
+        if not proj.project_code or not str(proj.project_code).strip():
+            continue
+
+        user_email = getattr(proj, project_field)
+        if not user_email: continue
+        
+        user_key = str(user_email).strip().lower()
+        if user_key not in leaderboard:
+            leaderboard[user_key] = {'name': user_email, 'total_score': 0, 'projects': 0, 'breakdown': []}
+
+        raw_stage = str(proj.stage).strip().lower()
+        current_stage = 'Post' if any(x in raw_stage for x in ['post', 'exec', 'ops', 'handover']) else 'Pre'
+        total_possible = stage_totals.get(current_stage, 0)
+        
+        project_score = 0
+        if total_possible > 0:
+            for vm in valid_metrics:
+                if vm['stage'] == current_stage:
+                    val = getattr(proj, vm['field'], 0.0)
+                    threshold = vm['threshold']
+                    
+                    if threshold > 0: raw_progress = val / threshold
+                    else: raw_progress = 1.0 if val > 0 else 0.0
+                    
+                    capped_progress = min(raw_progress, 1.0)
+                    project_score += capped_progress * (vm['factor'] / total_possible * 100)
+        
+        project_score = round(project_score, 1)
+
+        leaderboard[user_key]['total_score'] += project_score
+        leaderboard[user_key]['projects'] += 1
+        leaderboard[user_key]['breakdown'].append({
+            'project_name': proj.project_name or proj.project_code,
+            'code': proj.project_code,
+            'stage': current_stage,
+            'sbu': proj.sbu,
+            'score': project_score
+        })
+
+    # 8. Post-Processing
+    sorted_leaderboard = sorted(leaderboard.values(), key=lambda x: x['total_score'], reverse=True)
+    all_scores = [u['total_score'] for u in leaderboard.values()]
+    total_users = len(all_scores)
+
+    for idx, row in enumerate(sorted_leaderboard, 1):
+        row['rank'] = idx
+        row['breakdown'].sort(key=lambda x: x['score'], reverse=True)
+
+        if total_users > 0:
+            people_beaten = sum(1 for s in all_scores if s <= row['total_score'])
+            row['percentile'] = int((people_beaten / total_users) * 100)
+        else:
+            row['percentile'] = 0
+            
+        row['total_score'] = round(row['total_score'], 1)
+
+    context = {
+        'leaderboard': sorted_leaderboard,
+        'selected_role': selected_role_name,
+        'all_roles': sorted(ROLE_CONFIG.keys()),
+        'start_date': start_str,
+        'end_date': end_str,
+        'selected_sbus': sbu_filter, 
+        'sbu_options': all_sbu_options,
+        'link_view': config.get('view', 'Sales'),
+        'link_param': config.get('url_param', 'f_s_lead')
+    }
+    return render(request, 'core/leaderboard.html', context)

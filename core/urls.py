@@ -20,5 +20,12 @@ urlpatterns = [
     # 6. Detailed Report (The Detailed HTML table in a new tab)
     path('report-detailed/', views.report_detailed_view, name='report_detailed'),
 
+    # 7. Project Detail Page (The page showing all metrics for a specific project)
     path('project/<int:pk>/', views.project_detail, name='project_detail'),
+
+    # 8. Scorecard View (The page showing the scorecard for a specific project)
+    path('scorecard/<str:project_code>/', views.project_scorecard_view, name='project_scorecard'),
+
+    # 9. Leaderboard View (The page showing the leaderboard of users based on their scores)
+    path('leaderboard/', views.leaderboard_view, name='leaderboard'),
 ]

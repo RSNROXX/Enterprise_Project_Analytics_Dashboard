@@ -377,6 +377,14 @@
         "documentation": {}
     },
     {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
         "label": "models",
         "importPath": "django.db",
         "description": "django.db",
@@ -385,7 +393,87 @@
         "documentation": {}
     },
     {
-        "label": "transaction",
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
         "importPath": "django.db",
         "description": "django.db",
         "isExtraImport": true,
@@ -483,14 +571,6 @@
     },
     {
         "label": "m2m_changed",
-        "importPath": "django.db.models.signals",
-        "description": "django.db.models.signals",
-        "isExtraImport": true,
-        "detail": "django.db.models.signals",
-        "documentation": {}
-    },
-    {
-        "label": "post_delete",
         "importPath": "django.db.models.signals",
         "description": "django.db.models.signals",
         "isExtraImport": true,
@@ -660,6 +740,30 @@
     },
     {
         "label": "Q",
+        "importPath": "django.db.models",
+        "description": "django.db.models",
+        "isExtraImport": true,
+        "detail": "django.db.models",
+        "documentation": {}
+    },
+    {
+        "label": "Sum",
+        "importPath": "django.db.models",
+        "description": "django.db.models",
+        "isExtraImport": true,
+        "detail": "django.db.models",
+        "documentation": {}
+    },
+    {
+        "label": "Count",
+        "importPath": "django.db.models",
+        "description": "django.db.models",
+        "isExtraImport": true,
+        "detail": "django.db.models",
+        "documentation": {}
+    },
+    {
+        "label": "F",
         "importPath": "django.db.models",
         "description": "django.db.models",
         "isExtraImport": true,
@@ -1198,6 +1302,60 @@
         "documentation": {}
     },
     {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0009_metricweight",
+        "description": "core.migrations.0009_metricweight",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0008_alter_successmetric_color'),\n    ]\n    operations = [\n        migrations.CreateModel(\n            name='MetricWeight',\n            fields=[\n                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),\n                ('department', models.CharField(choices=[('Sales', 'Sales'), ('Design', 'Design'), ('Operations', 'Operations'), ('Marketing', 'Marketing'), ('Purchase', 'Purchase'), ('Finance', 'Finance')], max_length=50)),",
+        "detail": "core.migrations.0009_metricweight",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0010_alter_metricweight_options_and_more",
+        "description": "core.migrations.0010_alter_metricweight_options_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0009_metricweight'),\n    ]\n    operations = [\n        migrations.AlterModelOptions(\n            name='metricweight',\n            options={'verbose_name': 'Metric Weight', 'verbose_name_plural': 'Metric Weights'},\n        ),\n        migrations.AlterUniqueTogether(",
+        "detail": "core.migrations.0010_alter_metricweight_options_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0011_remove_metric_credit_weight_and_more",
+        "description": "core.migrations.0011_remove_metric_credit_weight_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0010_alter_metricweight_options_and_more'),\n    ]\n    operations = [\n        migrations.RemoveField(\n            model_name='metric',\n            name='credit_weight',\n        ),\n        migrations.RemoveField(",
+        "detail": "core.migrations.0011_remove_metric_credit_weight_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0012_delete_metricweight_metric_credit_weight_and_more",
+        "description": "core.migrations.0012_delete_metricweight_metric_credit_weight_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0011_remove_metric_credit_weight_and_more'),\n    ]\n    operations = [\n        migrations.DeleteModel(\n            name='MetricWeight',\n        ),\n        migrations.AddField(\n            model_name='metric',",
+        "detail": "core.migrations.0012_delete_metricweight_metric_credit_weight_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0013_remove_metric_credit_weight_and_more",
+        "description": "core.migrations.0013_remove_metric_credit_weight_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0012_delete_metricweight_metric_credit_weight_and_more'),\n    ]\n    operations = [\n        migrations.RemoveField(\n            model_name='metric',\n            name='credit_weight',\n        ),\n        migrations.RemoveField(",
+        "detail": "core.migrations.0013_remove_metric_credit_weight_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0014_alter_metricweight_factor_alter_metricweight_metric",
+        "description": "core.migrations.0014_alter_metricweight_factor_alter_metricweight_metric",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0013_remove_metric_credit_weight_and_more'),\n    ]\n    operations = [\n        migrations.AlterField(\n            model_name='metricweight',\n            name='factor',\n            field=models.IntegerField(choices=[(1, '1 - Minimal'), (2, '2 - Very Low'), (3, '3 - Low'), (4, '4 - Low-Medium'), (5, '5 - Medium (Standard)'), (6, '6 - Medium-High'), (7, '7 - High'), (8, '8 - Very High'), (9, '9 - Critical'), (10, '10 - Maximum Priority')], default=1, help_text='Importance relative to other tasks for THIS group.'),\n        ),",
+        "detail": "core.migrations.0014_alter_metricweight_factor_alter_metricweight_metric",
+        "documentation": {}
+    },
+    {
         "label": "update_params",
         "kind": 2,
         "importPath": "core.templatetags.dashboard_extras",
@@ -1220,7 +1378,34 @@
         "kind": 6,
         "importPath": "core.admin",
         "description": "core.admin",
-        "peekOfCode": "class SuccessMetricAdmin(admin.ModelAdmin):\n    list_display = ('name', 'color')\n    list_editable = ('color',)\n# --- 2. User Groups & Departments ---\nadmin.site.register(UserGroup)\nadmin.site.register(Department)\n# --- 3. Projects (Standard) ---\n@admin.register(Project)\nclass ProjectAdmin(admin.ModelAdmin):\n    list_display = ('project_name', 'project_code', 'stage', 'sbu', 'login_date')",
+        "peekOfCode": "class SuccessMetricAdmin(admin.ModelAdmin):\n    list_display = ('name', 'color')\n    list_editable = ('color',)\n# --- 2. User Groups & Departments ---\n@admin.register(Department)\nclass DepartmentAdmin(admin.ModelAdmin):\n    list_display = ('name',)\n@admin.register(UserGroup)\nclass UserGroupAdmin(admin.ModelAdmin):\n    list_display = ('name', 'department')",
+        "detail": "core.admin",
+        "documentation": {}
+    },
+    {
+        "label": "DepartmentAdmin",
+        "kind": 6,
+        "importPath": "core.admin",
+        "description": "core.admin",
+        "peekOfCode": "class DepartmentAdmin(admin.ModelAdmin):\n    list_display = ('name',)\n@admin.register(UserGroup)\nclass UserGroupAdmin(admin.ModelAdmin):\n    list_display = ('name', 'department')\n    list_filter = ('department',)\n    search_fields = ('name',)\n# --- 3. Inline for Metric Weights ---\nclass MetricWeightInline(admin.TabularInline):\n    model = MetricWeight",
+        "detail": "core.admin",
+        "documentation": {}
+    },
+    {
+        "label": "UserGroupAdmin",
+        "kind": 6,
+        "importPath": "core.admin",
+        "description": "core.admin",
+        "peekOfCode": "class UserGroupAdmin(admin.ModelAdmin):\n    list_display = ('name', 'department')\n    list_filter = ('department',)\n    search_fields = ('name',)\n# --- 3. Inline for Metric Weights ---\nclass MetricWeightInline(admin.TabularInline):\n    model = MetricWeight\n    extra = 0 # Clean UI: Start with no empty rows\n    min_num = 0\n    can_delete = True",
+        "detail": "core.admin",
+        "documentation": {}
+    },
+    {
+        "label": "MetricWeightInline",
+        "kind": 6,
+        "importPath": "core.admin",
+        "description": "core.admin",
+        "peekOfCode": "class MetricWeightInline(admin.TabularInline):\n    model = MetricWeight\n    extra = 0 # Clean UI: Start with no empty rows\n    min_num = 0\n    can_delete = True\n    verbose_name = \"Weight per Group\"\n    verbose_name_plural = \"Weight Configuration (Auto-Balances 100%)\"\n    # This creates a searchable dropdown for Groups (Best for long lists)\n    autocomplete_fields = ['user_group']\n# --- 4. Projects (Standard) ---",
         "detail": "core.admin",
         "documentation": {}
     },
@@ -1229,7 +1414,7 @@
         "kind": 6,
         "importPath": "core.admin",
         "description": "core.admin",
-        "peekOfCode": "class ProjectAdmin(admin.ModelAdmin):\n    list_display = ('project_name', 'project_code', 'stage', 'sbu', 'login_date')\n    search_fields = ('project_name', 'project_code')\n    # REMOVED 'department' from here to fix the error\n    list_filter = ('sbu', 'stage')\n# --- 4. The Smart Metric Admin (Auto-Balancing) ---\n@admin.register(Metric)\nclass MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'department', 'stage', 'get_groups', 'credit_weight', 'is_manual_credit', 'success_metric')\n    list_filter = ('department', 'stage', 'visible_to_groups')",
+        "peekOfCode": "class ProjectAdmin(admin.ModelAdmin):\n    list_display = ('project_name', 'project_code', 'stage', 'sbu', 'login_date')\n    search_fields = ('project_name', 'project_code')\n    # REMOVED 'department' from here to fix the error\n    list_filter = ('sbu', 'stage')\n# --- 5. The Smart Metric Admin (Auto-Balancing) ---\n@admin.register(Metric)\nclass MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'department', 'stage', 'get_assigned_weights', 'success_metric')\n    list_filter = ('department', 'stage')",
         "detail": "core.admin",
         "documentation": {}
     },
@@ -1238,7 +1423,7 @@
         "kind": 6,
         "importPath": "core.admin",
         "description": "core.admin",
-        "peekOfCode": "class MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'department', 'stage', 'get_groups', 'credit_weight', 'is_manual_credit', 'success_metric')\n    list_filter = ('department', 'stage', 'visible_to_groups')\n    list_editable = ('credit_weight', 'is_manual_credit')\n    filter_horizontal = ('visible_to_groups',)\n    fieldsets = (\n        ('Basic Info', {\n            'fields': ('label', 'field_name', 'department', 'stage', 'visible_to_groups')\n        }),\n        ('Logic & Thresholds', {",
+        "peekOfCode": "class MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'department', 'stage', 'get_assigned_weights', 'success_metric')\n    list_filter = ('department', 'stage')\n    search_fields = ('label', 'field_name')\n    # THIS puts the Weight Table inside the Metric Page\n    inlines = [MetricWeightInline]\n    fieldsets = (\n        ('Basic Info', {\n            'fields': ('label', 'field_name', 'department', 'stage', 'success_metric')\n        }),",
         "detail": "core.admin",
         "documentation": {}
     },
@@ -1249,6 +1434,15 @@
         "description": "core.apps",
         "peekOfCode": "class CoreConfig(AppConfig):\n    default_auto_field = 'django.db.models.BigAutoField'\n    name = 'core'  # Make sure this matches your folder name (it might be 'flipspaces_analytics' or 'core')\n    def ready(self):\n        import core.signals  # <--- THIS IS THE KEY LINE",
         "detail": "core.apps",
+        "documentation": {}
+    },
+    {
+        "label": "DEPT_CHOICES",
+        "kind": 5,
+        "importPath": "core.constants",
+        "description": "core.constants",
+        "peekOfCode": "DEPT_CHOICES = (\n    ('Marketing', 'Marketing'),\n    ('Sales', 'Sales'),\n    ('Design', 'Design'),\n    ('Operations', 'Operations'),\n    ('Purchase', 'Purchase'),\n    ('Finance', 'Finance'),\n)\nDEPT_PEOPLE_MAP = {\n    'Marketing': [",
+        "detail": "core.constants",
         "documentation": {}
     },
     {
@@ -1333,30 +1527,12 @@
         "documentation": {}
     },
     {
-        "label": "distribute_group_credits",
-        "kind": 2,
-        "importPath": "core.signals",
-        "description": "core.signals",
-        "peekOfCode": "def distribute_group_credits(group):\n    \"\"\"\n    The Brain: Balances credits for a specific User Group to ensure Sum = 100.\n    \"\"\"\n    if not group:\n        return\n    # 1. Fetch all metrics in this group\n    metrics = group.metric_set.all()\n    if not metrics.exists():\n        return",
-        "detail": "core.signals",
-        "documentation": {}
-    },
-    {
-        "label": "on_group_assignment_change",
-        "kind": 2,
-        "importPath": "core.signals",
-        "description": "core.signals",
-        "peekOfCode": "def on_group_assignment_change(sender, instance, action, reverse, model, pk_set, **kwargs):\n    \"\"\"\n    Triggered when a Metric is added to or removed from a User Group.\n    \"\"\"\n    if action in [\"post_add\", \"post_remove\", \"post_clear\"]:\n        # If we are changing the groups on a Metric instance\n        if isinstance(instance, Metric):\n            # Recalculate for all groups this metric is now part of (or was part of)\n            if pk_set:\n                groups = UserGroup.objects.filter(pk__in=pk_set)",
-        "detail": "core.signals",
-        "documentation": {}
-    },
-    {
-        "label": "on_metric_save",
-        "kind": 2,
-        "importPath": "core.signals",
-        "description": "core.signals",
-        "peekOfCode": "def on_metric_save(sender, instance, created, **kwargs):\n    \"\"\"\n    Triggered when a Metric's 'is_manual_credit' or value is changed.\n    \"\"\"\n    # We need to recalculate every group this metric belongs to\n    # Use transaction.on_commit to ensure M2M relations are ready if it's a new object\n    def _do_recalc():\n        for group in instance.visible_to_groups.all():\n            distribute_group_credits(group)\n    transaction.on_commit(_do_recalc)",
-        "detail": "core.signals",
+        "label": "MetricWeight",
+        "kind": 6,
+        "importPath": "core.models",
+        "description": "core.models",
+        "peekOfCode": "class MetricWeight(models.Model):\n    \"\"\"\n        This table solves multiple user group to one metrics problem.\n        It links a specific Metric to a specific Group with a specific Importance.\n    \"\"\"\n    metric = models.ForeignKey(Metric, on_delete=models.CASCADE)\n    user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE)\n    # 10 Levels of Importance (as you requested)\n    WEIGHT_CHOICES = [\n        (1, '1 - Minimal'), ",
+        "detail": "core.models",
         "documentation": {}
     },
     {
@@ -1373,7 +1549,7 @@
         "kind": 2,
         "importPath": "core.views",
         "description": "core.views",
-        "peekOfCode": "def upload_view(request):\n    if request.method == 'POST':\n        form = UploadFileForm(request.POST, request.FILES)\n        if form.is_valid():\n            try:\n                file = request.FILES['file']\n                xls = pd.ExcelFile(file)\n                sheet_map = {'sales': '', 'design': '', 'operation': ''}\n                for name in xls.sheet_names:\n                    lower = str(name).lower()",
+        "peekOfCode": "def upload_view(request):\n    if request.method == 'POST':\n        form = UploadFileForm(request.POST, request.FILES)\n        if form.is_valid():\n            try:\n                file = request.FILES['file']\n                xls = pd.ExcelFile(file)\n                sheet_map = {'sales': '', 'design': '', 'operation': ''}\n                # Find sheets (Case insensitive)\n                for name in xls.sheet_names:",
         "detail": "core.views",
         "documentation": {}
     },
@@ -1427,8 +1603,35 @@
         "kind": 2,
         "importPath": "core.views",
         "description": "core.views",
-        "peekOfCode": "def project_detail(request, pk):\n    # 1. Fetch Project or 404\n    project = get_object_or_404(Project, pk=pk)\n    # 2. Render Template\n    return render(request, 'core/project_detail.html', {\n        'project': project,\n    })",
+        "peekOfCode": "def project_detail(request, pk):\n    # 1. Fetch Project or 404\n    project = get_object_or_404(Project, pk=pk)\n    # 2. Render Template\n    return render(request, 'core/project_detail.html', {\n        'project': project,\n    })\n# ==============================================================================\n# 7. PROJECT SCORECARD (The Credit System)\n# ==============================================================================",
         "detail": "core.views",
+        "documentation": {}
+    },
+    {
+        "label": "project_scorecard_view",
+        "kind": 2,
+        "importPath": "core.views",
+        "description": "core.views",
+        "peekOfCode": "def project_scorecard_view(request, project_code):\n    project = get_object_or_404(Project, project_code=project_code)\n    # 1. Get role from URL\n    raw_role_param = request.GET.get('metric_role', 'Design - ID')\n    # 2. Extract search term (e.g., \"ID\" from \"Design - ID\")\n    search_term = raw_role_param.split(' - ')[-1] if ' - ' in raw_role_param else raw_role_param\n    # 3. Find UserGroup and handle \"None\" safety\n    user_group = UserGroup.objects.filter(name__icontains=search_term).first()\n    all_groups = UserGroup.objects.select_related('department').order_by('department__name', 'name')\n    if not user_group:",
+        "detail": "core.views",
+        "documentation": {}
+    },
+    {
+        "label": "leaderboard_view",
+        "kind": 2,
+        "importPath": "core.views",
+        "description": "core.views",
+        "peekOfCode": "def leaderboard_view(request):\n    # 1. Get Params\n    view_mode, start_str, end_str, start_dt, end_dt, _, _, _, _ = _get_request_params(request)\n    # 2. Dynamic SBU Options\n    all_sbu_options = list(Project.objects.exclude(sbu__isnull=True).exclude(sbu=\"\").values_list('sbu', flat=True).distinct())\n    all_sbu_options.sort()\n    if not all_sbu_options: all_sbu_options = ['North', 'South', 'East', 'Central']\n    if 'sbu' in request.GET: sbu_filter = request.GET.getlist('sbu')\n    else: sbu_filter = all_sbu_options \n    # 3. Role Config",
+        "detail": "core.views",
+        "documentation": {}
+    },
+    {
+        "label": "FILE_PATH",
+        "kind": 5,
+        "importPath": "check_sys",
+        "description": "check_sys",
+        "peekOfCode": "FILE_PATH = 'C:\\Users\\rishi\\Downloads\\Example Report _14 Jan 2026_05.14 pm.xlsx' # <--- CHANGE THIS to your actual file name\nif not os.path.exists(FILE_PATH):\n    print(f\"❌ File not found: {FILE_PATH}\")\nelse:\n    xls = pd.ExcelFile(FILE_PATH)\n    print(f\"\\n📂 File Found: {FILE_PATH}\")\n    print(\"=\"*40)\n    for sheet in xls.sheet_names:\n        df = pd.read_excel(xls, sheet_name=sheet)\n        print(f\"\\n📄 SHEET: {sheet}\")",
+        "detail": "check_sys",
         "documentation": {}
     },
     {
