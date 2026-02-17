@@ -3,14 +3,14 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from collections import defaultdict
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.http import HttpResponse
-from django.db.models import Q
+from django.shortcuts import render, redirect, get_object_or_404            # type: ignore
+from django.contrib import messages                                         # type: ignore
+from django.http import HttpResponse                                        # type: ignore
+from django.db.models import Q                                              # type: ignore
 
 from .forms import UploadFileForm
 from .models import Project, Metric, Department, UserGroup
-from .constants import EXCEL_COL_MAP, ROLE_CONFIG, DEPT_PEOPLE_MAP
+from .constants import EXCEL_COL_MAP, ROLE_CONFIG, DEPT_PEOPLE_MAP, REPORT_ORDER_CONFIG, COMMON_REPORT_COLS
 
 # ==============================================================================
 # SECTION 1: GLOBAL HELPER SERVICES (Business Logic)
@@ -49,8 +49,10 @@ def _handle_threshold_session(request):
     final_map = {}
     all_metrics = Metric.objects.all()
     for m in all_metrics:
-        # If session has it, use session. Else use DB default.
-        final_map[m.field_name] = request.session['threshold_overrides'].get(m.field_name, m.default_threshold)
+        # Default to the DB 'min_threshold' if no session override exists
+        # If your model hasn't been migrated yet, use 0.0 as fallback
+        db_min = getattr(m, 'min_threshold', 0.0) 
+        final_map[m.field_name] = request.session['threshold_overrides'].get(m.field_name, db_min)
     
     return final_map
 
@@ -73,11 +75,13 @@ def _get_request_params(request):
     else:
         start_str = request.session.get('filter_start', default_start) 
 
+
     if request.GET.get('end'):
         end_str = request.GET.get('end')
         request.session['filter_end'] = end_str 
     else:
         end_str = request.session.get('filter_end', default_end) 
+
 
     # 3. SBU LOGIC (Priority: URL > Session > Default)
     if 'sbu' in request.GET:
@@ -146,51 +150,73 @@ def _get_scoring_engine_context(user_group, threshold_map):
     metrics = Metric.objects.filter(
         metricweight__user_group=user_group, 
         metricweight__factor__gt=0
-    ).distinct().prefetch_related('metricweight_set')
+    ).distinct()
     
     stage_totals = {}
     valid_metrics = []
 
     for m in metrics:
-        weight_obj = m.metricweight_set.filter(user_group=user_group).first()
-        if weight_obj and weight_obj.factor > 0:
-            stage_totals[m.stage] = stage_totals.get(m.stage, 0) + weight_obj.factor
-            effective_thresh = threshold_map.get(m.field_name, m.default_threshold)
-            valid_metrics.append({
-                'field': m.field_name, 'label': m.label,
-                'factor': weight_obj.factor, 'stage': m.stage, 
-                'threshold': m.default_threshold
-            })
+        # We calculate the "Total Possible" based on the Max Threshold (Cap)
+        # Assuming Max Threshold IS the max credits possible for that metric
+        db_min = getattr(m, 'min_threshold', 1.0)
+        db_max = getattr(m, 'max_threshold', 10.0)
+
+        max_points = db_max
+        
+        stage_totals[m.stage] = stage_totals.get(m.stage, 0) + max_points
+
+        # DASHBOARD OVERRIDE LOGIC:
+        # If user changed threshold in Dashboard, it overrides the MINIMUM threshold.
+        # Default falls back to DB min_threshold.
+        effective_min = threshold_map.get(m.field_name, db_min)
+
+        valid_metrics.append({
+            'field': m.field_name, 
+            'label': m.label,
+            'stage': m.stage, 
+            'min': effective_min,          
+            'max': db_max,        
+            'weight_factor': max_points    
+        })
     return valid_metrics, stage_totals
 
 def _calculate_project_score(project, valid_metrics, stage_totals):
     """ 
-        Core Math Engine: Calculates score (0-100) for a project. 
-        Caps every individual metric at 100% (1.0).
+        Logic: 
+      - If Actual < Min: 0 Pts
+      - If Min <= Actual <= Max: (Actual - Min) Pts
+      - If Actual > Max: Max Pts (Capped)
     """
     raw_stage = str(project.stage).strip().lower()
     current_stage = 'Post' if any(x in raw_stage for x in ['post', 'exec', 'ops', 'handover']) else 'Pre'
+
     total_possible = stage_totals.get(current_stage, 0)
-    project_score = 0.0
+    earned_points = 0.0
     
     if total_possible > 0:
         for vm in valid_metrics:
             if vm['stage'] == current_stage:
                 val = getattr(project, vm['field'], 0.0)
-                threshold = vm['threshold']
                 
-                # Normalize (Actual / Target)
-                if threshold > 0: raw_progress = val / threshold
-                else: raw_progress = 1.0 if val > 0 else 0.0
+                # 1. Calculate the Range Span
+                # (Handle edge case where Max might be 0 to avoid division by zero)
+                if vm['max'] > 0:
+                    range_span = (vm['max'] - vm['min']) + 1
+                    factor = range_span / vm['max']
+                    
+                    # 2. Calculate Points
+                    calculated_points = val * factor
+                    
+                    # 3. Cap at Max Threshold? 
+                    # Cap points at the Max Threshold to prevent "infinite" scores.
+                    # We will CAP it at vm['max'] to be safe.
+                    final_points = min(calculated_points, vm['max'])
+                else:
+                    final_points = 0.0
                 
-                # CAP AT 100% (The Logic Fix)
-                capped_progress = min(raw_progress, 1.0)
+                earned_points += final_points
                 
-                # Weighted Points
-                points = capped_progress * (vm['factor'] / total_possible * 100)
-                project_score += points
-                
-    return round(project_score, 1), current_stage
+    return round(earned_points, 1), current_stage
 
 def group_roles_by_dept(flat_roles):
     """
@@ -246,7 +272,8 @@ def _fetch_metrics_from_db(view_mode, stage, role_filter, threshold_map):
         weight_groups = {w.user_group.name for w in m.metricweight_set.all() if w.factor > 0}
         allowed_groups = list(m2m_groups | weight_groups)
 
-        effective_val = threshold_map.get(m.field_name, m.default_threshold)
+        db_min = getattr(m, 'min_threshold', 0.0)
+        effective_val = threshold_map.get(m.field_name, db_min)
         
         metrics_list.append({
             'label': m.label,
@@ -502,12 +529,18 @@ def upload_view(request):
                             'project_name': ['project name', 'name'],
                             'sbu':          ['sbu', 'region'],
                             'stage':        ['stage', 'status'],
+                            'floors':       ['floors', 'no of floors'],
+                            'project_type': ['project type', 'type'],
+                            'lead_id':      ['lead id', 'lead', 'id'],
+
                             'sales_head':   ['sales head', 's head'],
                             'sales_lead':   ['sales lead', 's lead'],
+
                             'design_dh':    ['dh', 'design head'],
                             'design_dm':    ['dm', 'design lead', 'design manager'],
                             'design_id':    ['id', 'design id'],
                             'design_3d':    ['3d', '3d visualizer'],
+
                             'ops_head':     ['cluster/bu head', 'ops head'],
                             'ops_pm':       ['spm/pm', 'project manager', 'pm'],
                             'ops_om':       ['som/om', 'ops manager', 'om'],
@@ -650,14 +683,17 @@ def _handle_detailed_report(request, is_excel=False):
     projects = _apply_people_filters(projects, view_mode, request)
     qs_pre, qs_post = _get_stage_querysets(view_mode, projects, start_dt, end_dt, roll_start, roll_end)
 
-    def generate_df(queryset, metrics_list):
+    def generate_df(queryset, metrics_list, stage_key):
         if not metrics_list and not queryset.exists(): return pd.DataFrame()
+
         role_cols = []
         if view_mode in DEPT_PEOPLE_MAP:
             role_cols = [field for field, label in DEPT_PEOPLE_MAP[view_mode]]
-        
+
+        std_cols = ['project_name', 'project_code', 'lead_id', 'floors', 'project_type','sbu', 'stage', ]
         metric_fields = [m['field'] for m in metrics_list]
-        fetch_fields = ['project_code', 'project_name'] + role_cols + metric_fields
+        
+        fetch_fields = std_cols + role_cols + metric_fields
         data = list(queryset.values(*fetch_fields))
         
         if not data: return pd.DataFrame()
@@ -668,28 +704,41 @@ def _handle_detailed_report(request, is_excel=False):
             for field, label in DEPT_PEOPLE_MAP[view_mode]:
                 rename_map[field] = label
         
-        rename_map['project_code'] = 'Project ID'
-        rename_map['project_name'] = 'Project Name'
+        # Can be used to rename metadata fields back into readable format. 
+        rename_map.update({
+            'project_name': 'Project Name',
+            'project_code': 'Project Code',
+            'lead_id': 'Lead ID',
+            'floors': 'Floors',
+            'project_type': 'Project Type',
+            'stage': 'Stage',
+            'sbu': 'SBU',
+        })
+
         df = df.rename(columns=rename_map).fillna('')
 
-        # Reorder: Project -> Metrics -> Roles
-        metric_labels = [m['label'] for m in metrics_list]
-        role_labels = [rename_map.get(c, c) for c in role_cols]
-        final_order = ['Project ID', 'Project Name'] + metric_labels + role_labels
-        existing_cols = [c for c in final_order if c in df.columns]
-        
-        return df[existing_cols]
+        dept_config = REPORT_ORDER_CONFIG.get(view_mode, COMMON_REPORT_COLS)
+
+        if isinstance(dept_config, dict):
+            preferred_order = dept_config.get(stage_key, COMMON_REPORT_COLS)
+        else:
+            preferred_order = dept_config
+
+        final_cols = [c for c in preferred_order if c in df.columns]
+        extra_cols = [c for c in df.columns if c not in final_cols]
+
+        return df[final_cols + extra_cols]
 
     pre_metrics_db = _fetch_metrics_from_db(view_mode, 'Pre', role_filter, threshold_map)
     post_metrics_db = _fetch_metrics_from_db(view_mode, 'Post', role_filter, threshold_map)
-    df_pre = generate_df(qs_pre, pre_metrics_db) if view_mode != 'Operations' else pd.DataFrame()
-    df_post = generate_df(qs_post, post_metrics_db)
+    df_pre = generate_df(qs_pre, pre_metrics_db, 'Pre') if view_mode != 'Operations' else pd.DataFrame()
+    df_post = generate_df(qs_post, post_metrics_db, 'Post')
 
     if is_excel:
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            if not df_pre.empty: df_pre.to_excel(writer, sheet_name='Pre-Detailed', index=False)
-            if not df_post.empty: df_post.to_excel(writer, sheet_name='Post-Detailed', index=False)
+            if not df_pre.empty: df_pre.to_excel(writer, sheet_name='Pre-Stage', index=False)
+            if not df_post.empty: df_post.to_excel(writer, sheet_name='Post-Stage', index=False)
         buffer.seek(0)
         response = HttpResponse(buffer.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="Detailed_{view_mode}.xlsx"'
@@ -697,8 +746,14 @@ def _handle_detailed_report(request, is_excel=False):
     else:
         context = {
             'view_mode': view_mode, 'start_date': str(start_dt), 'end_date': str(end_dt),
-            'df_pre': df_pre.to_html(classes='table table-bordered table-hover', index=False, border=0) if not df_pre.empty else None,
-            'df_post': df_post.to_html(classes='table table-bordered table-hover', index=False, border=0) if not df_post.empty else None,
+            
+            # PRE-STAGE DATA
+            'pre_columns': df_pre.columns.tolist() if not df_pre.empty else [],
+            'pre_data': df_pre.to_dict('records') if not df_pre.empty else [],
+            
+            # POST-STAGE DATA
+            'post_columns': df_post.columns.tolist() if not df_post.empty else [],
+            'post_data': df_post.to_dict('records') if not df_post.empty else [],
         }
         return render(request, 'core/report_detailed.html', context)
 
@@ -728,23 +783,75 @@ def project_scorecard_view(request, project_code):
     total_factor_sum = stage_totals.get(metric_stage_key, 0)
     final_scores = []
     
+    COLOR_SUCCESS = "#10b981" 
+    COLOR_WARNING = "#f59e0b"
+    COLOR_DANGER  = "#ef4444"
+
     for vm in valid_metrics:
         if vm['stage'] == metric_stage_key:
             current_value = getattr(project, vm['field'], 0.0)
-            threshold = vm['threshold']
             
-            raw_progress = (current_value / threshold) if threshold > 0 else (1.0 if current_value > 0 else 0.0)
-            capped_progress = min(raw_progress, 1.0)
-            weight_percent = (vm['factor'] / total_factor_sum * 100) if total_factor_sum > 0 else 0
-            points = capped_progress * weight_percent
+            # 1. Scoring Logic 
+            if vm['max'] > 0:
+                range_span = (vm['max'] - vm['min']) + 1
+                factor = range_span / vm['max']
+                calculated_points = current_value * factor
+                points = min(calculated_points, vm['max'])
+            else:
+                points = 0.0
             
+            # 2. VISUAL BAR LOGIC 
+            # Rule: Bar always covers [Min, Max]. 
+            # If Value is OUTSIDE this range, we stretch the bar to include it.
+
+            # Default boundaries
+            display_start = vm['min']
+            display_end = vm['max']
+
+            # Adjust if value is lower than Min
+            if current_value < vm['min']:
+                display_start = current_value
+            
+            # Adjust if value is higher than Max
+            if current_value > vm['max']:
+                display_end = current_value
+
+            # Calculate Marker % relative to this Dynamic Display Range
+            total_span = display_end - display_start
+            if total_span == 0:
+                marker_pct = 100 if current_value > 0 else 0
+            else:
+                marker_pct = ((current_value - display_start) / total_span) * 100
+            
+            # Progress % for the "Status Text" (Standard 0-100% of Max Points)
+            progress_pct = (points / vm['max'] * 100) if vm['max'] > 0 else 0
+            
+            # --- 3. COLORS ---
+            if points >= vm['max']: # Use >= in case cap is hit
+                color = COLOR_SUCCESS
+                icon = "fas fa-check-circle"
+            elif points > 0:
+                color = COLOR_WARNING
+                icon = "fas fa-exclamation-circle"
+            else:
+                color = COLOR_DANGER
+                icon = "fas fa-times-circle"
+
             final_scores.append({
-                'metric': vm['label'], 'factor': vm['factor'],
+                'metric': vm['label'], 
+                'min': vm['min'], 
+                'max': vm['max'],
+                
+                # Visual Data for the Bar
+                'bar_start': int(display_start) if display_start % 1 == 0 else display_start,
+                'bar_end': int(display_end) if display_end % 1 == 0 else display_end,
+                'marker_pct': marker_pct,
+
                 'actual': int(current_value) if current_value % 1 == 0 else round(current_value, 1),
-                'target': int(threshold) if threshold % 1 == 0 else round(threshold, 1),
-                'target_percent': round(weight_percent, 1),
-                'status_text': f"{int(raw_progress * 100)}%",
-                'points_earned': round(points, 1)
+                'points_earned': round(points, 1),
+                'status_text': f"{int(progress_pct)}%",
+                'color': color, 'icon': icon,
+                'factor': vm['max'] 
             })
 
     final_scores.sort(key=lambda x: x['factor'], reverse=True)
@@ -752,8 +859,32 @@ def project_scorecard_view(request, project_code):
     all_role_keys = sorted(ROLE_CONFIG.keys())
     grouped_roles = group_roles_by_dept(all_role_keys)
 
+    # 2. CALCULATE PROJECT LEVEL COLOR
+    project_color = COLOR_DANGER
+    if project_score >= 80:
+        project_color = COLOR_SUCCESS
+    elif project_score >= 50:
+        project_color = COLOR_WARNING
+
+    # 3. CALCULATE METRIC LEVEL COLORS
+    for score in final_scores:
+        # Logic: Full points = Green, Partial = Orange, Zero = Red
+        if score['points_earned'] == score['factor']:
+            score['color'] = COLOR_SUCCESS
+            score['bs_class'] = 'success' # For Bootstrap classes like bg-success
+            score['icon'] = 'fas fa-check-circle'
+        elif score['points_earned'] > 0:
+            score['color'] = COLOR_WARNING
+            score['bs_class'] = 'warning'
+            score['icon'] = 'fas fa-exclamation-circle'
+        else:
+            score['color'] = COLOR_DANGER
+            score['bs_class'] = 'danger'
+            score['icon'] = 'fas fa-times-circle'
+
     return render(request, 'core/project_scorecard.html', {
         'project': project, 'user_group': user_group,
+        'project_color': project_color, 'scores': final_scores,
         'selected_group_id': user_group.id, 'all_groups': all_groups, 
         'total_factor': total_factor_sum, 'scores': final_scores, 
         'project_total': project_score,

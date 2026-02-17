@@ -489,6 +489,62 @@
         "documentation": {}
     },
     {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "migrations",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
+        "label": "models",
+        "importPath": "django.db",
+        "description": "django.db",
+        "isExtraImport": true,
+        "detail": "django.db",
+        "documentation": {}
+    },
+    {
         "label": "models",
         "importPath": "django.db",
         "description": "django.db",
@@ -515,6 +571,14 @@
     },
     {
         "label": "forms",
+        "importPath": "django",
+        "description": "django",
+        "isExtraImport": true,
+        "detail": "django",
+        "documentation": {}
+    },
+    {
+        "label": "template",
         "importPath": "django",
         "description": "django",
         "isExtraImport": true,
@@ -1357,11 +1421,74 @@
         "documentation": {}
     },
     {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0016_metric_max_threshold_metric_min_threshold_and_more",
+        "description": "core.migrations.0016_metric_max_threshold_metric_min_threshold_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0015_project_f_head_project_m_head_project_m_lead_and_more'),\n    ]\n    operations = [\n        migrations.AddField(\n            model_name='metric',\n            name='max_threshold',\n            field=models.FloatField(default=10.0, help_text='Maximum points achievable for this metric.'),\n        ),",
+        "detail": "core.migrations.0016_metric_max_threshold_metric_min_threshold_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0017_remove_metric_default_threshold",
+        "description": "core.migrations.0017_remove_metric_default_threshold",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0016_metric_max_threshold_metric_min_threshold_and_more'),\n    ]\n    operations = [\n        migrations.RemoveField(\n            model_name='metric',\n            name='default_threshold',\n        ),\n    ]",
+        "detail": "core.migrations.0017_remove_metric_default_threshold",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0018_project_floors_project_lead_id_project_project_type_and_more",
+        "description": "core.migrations.0018_project_floors_project_lead_id_project_project_type_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0017_remove_metric_default_threshold'),\n    ]\n    operations = [\n        migrations.AddField(\n            model_name='project',\n            name='floors',\n            field=models.CharField(blank=True, max_length=50, null=True),\n        ),",
+        "detail": "core.migrations.0018_project_floors_project_lead_id_project_project_type_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "Migration",
+        "kind": 6,
+        "importPath": "core.migrations.0019_project_days_till_date_project_manpower_added_days_and_more",
+        "description": "core.migrations.0019_project_days_till_date_project_manpower_added_days_and_more",
+        "peekOfCode": "class Migration(migrations.Migration):\n    dependencies = [\n        ('core', '0018_project_floors_project_lead_id_project_project_type_and_more'),\n    ]\n    operations = [\n        migrations.AddField(\n            model_name='project',\n            name='days_till_date',\n            field=models.FloatField(default=0.0),\n        ),",
+        "detail": "core.migrations.0019_project_days_till_date_project_manpower_added_days_and_more",
+        "documentation": {}
+    },
+    {
+        "label": "get_item",
+        "kind": 2,
+        "importPath": "core.templatetags.custom_filters",
+        "description": "core.templatetags.custom_filters",
+        "peekOfCode": "def get_item(dictionary, key):\n    return dictionary.get(key)",
+        "detail": "core.templatetags.custom_filters",
+        "documentation": {}
+    },
+    {
+        "label": "register",
+        "kind": 5,
+        "importPath": "core.templatetags.custom_filters",
+        "description": "core.templatetags.custom_filters",
+        "peekOfCode": "register = template.Library()\n@register.filter\ndef get_item(dictionary, key):\n    return dictionary.get(key)",
+        "detail": "core.templatetags.custom_filters",
+        "documentation": {}
+    },
+    {
         "label": "update_params",
         "kind": 2,
         "importPath": "core.templatetags.dashboard_extras",
         "description": "core.templatetags.dashboard_extras",
         "peekOfCode": "def update_params(context, **kwargs):\n    \"\"\"\n        Returns the current URL query string with updated parameters.\n        Usage: <a href=\"?{% update_params page=2 %}\">Next</a>\n        Keeps existing filters (like start_date, sbu) while changing one specific param.\n    \"\"\"\n    query = context['request'].GET.copy()\n    for key, value in kwargs.items():\n        query[key] = value\n    return query.urlencode()",
+        "detail": "core.templatetags.dashboard_extras",
+        "documentation": {}
+    },
+    {
+        "label": "get_item",
+        "kind": 2,
+        "importPath": "core.templatetags.dashboard_extras",
+        "description": "core.templatetags.dashboard_extras",
+        "peekOfCode": "def get_item(dictionary, key):\n    return dictionary.get(key)",
         "detail": "core.templatetags.dashboard_extras",
         "documentation": {}
     },
@@ -1415,7 +1542,7 @@
         "kind": 6,
         "importPath": "core.admin",
         "description": "core.admin",
-        "peekOfCode": "class ProjectAdmin(admin.ModelAdmin):\n    list_display = ('project_code', 'project_name', 'sbu', 'stage', 'login_date')\n    list_filter = ('sbu', 'stage', 'login_date')\n    search_fields = ('project_code', 'project_name', 'sales_lead', 'ops_pm')\n    date_hierarchy = 'login_date'\n# --- 5. Metrics Configuration ---\n@admin.register(Metric)\nclass MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'department', 'stage', 'default_threshold', 'get_assigned_weights')\n    list_filter = ('department', 'stage', 'success_metric')",
+        "peekOfCode": "class ProjectAdmin(admin.ModelAdmin):\n    list_display = ('project_code', 'project_name', 'sbu', 'stage', 'login_date')\n    list_filter = ('sbu', 'stage', 'login_date')\n    search_fields = ('project_code', 'project_name', 'sales_lead', 'ops_pm')\n    date_hierarchy = 'login_date'\n# --- 5. Metrics Configuration ---\n@admin.register(Metric)\nclass MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'stage', 'department', 'min_threshold', 'max_threshold')\n    list_editable = ('min_threshold', 'max_threshold')",
         "detail": "core.admin",
         "documentation": {}
     },
@@ -1424,7 +1551,7 @@
         "kind": 6,
         "importPath": "core.admin",
         "description": "core.admin",
-        "peekOfCode": "class MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'department', 'stage', 'default_threshold', 'get_assigned_weights')\n    list_filter = ('department', 'stage', 'success_metric')\n    search_fields = ('label', 'field_name')\n    # This places the Weight Table directly inside the Metric page\n    inlines = [MetricWeightInline]\n    fieldsets = (\n        ('Display Info', {\n            'fields': ('label', 'department', 'success_metric')\n        }),",
+        "peekOfCode": "class MetricAdmin(admin.ModelAdmin):\n    list_display = ('label', 'stage', 'department', 'min_threshold', 'max_threshold')\n    list_editable = ('min_threshold', 'max_threshold')\n    list_filter = ('department', 'stage', 'success_metric')\n    search_fields = ('label', 'field_name')\n    # This places the Weight Table directly inside the Metric page\n    inlines = [MetricWeightInline]\n    # Organize the detail view\n    fieldsets = (\n        ('Basic Info', {",
         "detail": "core.admin",
         "documentation": {}
     },
@@ -1474,6 +1601,24 @@
         "documentation": {}
     },
     {
+        "label": "COMMON_REPORT_COLS",
+        "kind": 5,
+        "importPath": "core.constants",
+        "description": "core.constants",
+        "peekOfCode": "COMMON_REPORT_COLS = [\n    'Project Name', \n    'Project Code', \n    'Lead ID', \n    'SBU', \n    'Stage', \n    'Project Type', \n    'Floors'\n]\nREPORT_ORDER_CONFIG = {",
+        "detail": "core.constants",
+        "documentation": {}
+    },
+    {
+        "label": "REPORT_ORDER_CONFIG",
+        "kind": 5,
+        "importPath": "core.constants",
+        "description": "core.constants",
+        "peekOfCode": "REPORT_ORDER_CONFIG = {\n    'Sales': {   \n        'Pre': COMMON_REPORT_COLS + [\n            'Requirements Uploaded',  \n            'Site Visit Reports',  \n            'Client Visits',              \n            'Sales Head',          \n            'Sales Lead'          \n        ],\n        'Post': COMMON_REPORT_COLS + [",
+        "detail": "core.constants",
+        "documentation": {}
+    },
+    {
         "label": "UploadFileForm",
         "kind": 6,
         "importPath": "core.forms",
@@ -1505,7 +1650,7 @@
         "kind": 6,
         "importPath": "core.models",
         "description": "core.models",
-        "peekOfCode": "class UserGroup(models.Model):\n    \"\"\" Specific Roles within a Department (e.g. 'Sales Lead', '3D Visualizer'). \"\"\"\n    department = models.ForeignKey(Department, on_delete=models.CASCADE)\n    name = models.CharField(max_length=50)\n    def __str__(self):\n        return f\"{self.department.name} - {self.name}\"\nclass SuccessMetric(models.Model):\n    \"\"\" Tags for UI coloring (e.g. 'Critical' = Red, 'Good' = Green). \"\"\"\n    COLOR_CHOICES = [\n        ('primary', 'Blue (Primary)'),",
+        "peekOfCode": "class UserGroup(models.Model):\n    \"\"\" Specific Roles within a Department (e.g. 'Sales Lead', '3D Visualizer'). \"\"\"\n    department = models.ForeignKey(Department, on_delete=models.CASCADE)\n    name = models.CharField(max_length=50)\n    def __str__(self):\n        return f\"{self.department.name} - {self.name}\"\nclass SuccessMetric(models.Model):\n    COLOR_CHOICES = [\n        ('primary', 'Blue (Primary)'),\n        ('secondary', 'Grey (Secondary)'),",
         "detail": "core.models",
         "documentation": {}
     },
@@ -1514,7 +1659,7 @@
         "kind": 6,
         "importPath": "core.models",
         "description": "core.models",
-        "peekOfCode": "class SuccessMetric(models.Model):\n    \"\"\" Tags for UI coloring (e.g. 'Critical' = Red, 'Good' = Green). \"\"\"\n    COLOR_CHOICES = [\n        ('primary', 'Blue (Primary)'),\n        ('secondary', 'Grey (Secondary)'),\n        ('success', 'Green (Success)'),\n        ('danger', 'Red (Danger)'),\n        ('warning', 'Yellow (Warning)'),\n        ('info', 'Cyan (Info)'),\n        ('light', 'White (Light)'),",
+        "peekOfCode": "class SuccessMetric(models.Model):\n    COLOR_CHOICES = [\n        ('primary', 'Blue (Primary)'),\n        ('secondary', 'Grey (Secondary)'),\n        ('success', 'Green (Success)'),\n        ('danger', 'Red (Danger)'),\n        ('warning', 'Yellow (Warning)'),\n        ('info', 'Cyan (Info)'),\n        ('light', 'White (Light)'),\n        ('dark', 'Black (Dark)'),",
         "detail": "core.models",
         "documentation": {}
     },
@@ -1523,7 +1668,7 @@
         "kind": 6,
         "importPath": "core.models",
         "description": "core.models",
-        "peekOfCode": "class Metric(models.Model):\n    \"\"\" \n    Defines a KPI to be tracked.\n    Maps a user-friendly Label (e.g. 'Client Visits') to a Database Field (e.g. 'client_access').\n    \"\"\"\n    STAGE_CHOICES = [('Pre', 'Pre-Stage'), ('Post', 'Post-Stage')]\n    label = models.CharField(max_length=100) \n    field_name = models.CharField(max_length=100, help_text=\"Must match a field in the Project model exactly.\")\n    department = models.ForeignKey(Department, on_delete=models.CASCADE)\n    stage = models.CharField(max_length=10, choices=STAGE_CHOICES)",
+        "peekOfCode": "class Metric(models.Model):\n    \"\"\" \n        Defines a KPI to be tracked.\n        Maps a user-friendly Label (e.g. 'Client Visits') to a Database Field (e.g. 'client_access').\n    \"\"\"\n    STAGE_CHOICES = [('Pre', 'Pre-Stage'), ('Post', 'Post-Stage')]\n    label = models.CharField(max_length=100) \n    field_name = models.CharField(max_length=100, help_text=\"Must match a field in the Project model exactly.\")\n    department = models.ForeignKey(Department, on_delete=models.CASCADE)\n    stage = models.CharField(max_length=10, choices=STAGE_CHOICES)",
         "detail": "core.models",
         "documentation": {}
     },
@@ -1532,7 +1677,7 @@
         "kind": 6,
         "importPath": "core.models",
         "description": "core.models",
-        "peekOfCode": "class MetricWeight(models.Model):\n    \"\"\"\n    The Core Scoring Engine Configuration.\n    Assigns an 'Importance Factor' to a Metric for a specific User Group.\n    \"\"\"\n    metric = models.ForeignKey(Metric, on_delete=models.CASCADE)\n    user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE)\n    WEIGHT_CHOICES = [\n        (1, '1 - Minimal'), (2, '2 - Very Low'), (3, '3 - Low'),\n        (4, '4 - Low-Medium'), (5, '5 - Medium (Standard)'),",
+        "peekOfCode": "class MetricWeight(models.Model):\n    \"\"\"\n        The Core Scoring Engine Configuration.\n        Assigns an 'Importance Factor' to a Metric for a specific User Group.\n    \"\"\"\n    metric = models.ForeignKey(Metric, on_delete=models.CASCADE)\n    user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE)\n    WEIGHT_CHOICES = [\n        (1, '1 - Minimal'), (2, '2 - Very Low'), (3, '3 - Low'),\n        (4, '4 - Low-Medium'), (5, '5 - Medium (Standard)'),",
         "detail": "core.models",
         "documentation": {}
     },

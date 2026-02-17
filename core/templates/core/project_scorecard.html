@@ -1,159 +1,347 @@
 {% extends "core/base.html" %}
 
-{% block title %}{{ project.project_name }} | Scorecard{% endblock %}
-{% block page_title %}Project Scorecard{% endblock %}
-{% block page_subtitle %}Audit View: <span class="text-primary fw-bold">{{ project.project_name }}</span>{% endblock %}
+{% block title %} Scorecard: {{ project.project_code }} {% endblock %}
+{% block page_title %} 🎯 Project Scorecard {% endblock %}
+{% block page_subtitle %}Detailed metric audit and credit calculation{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* SCORECARD SPECIFIC STYLES */
-    .score-card-container {
-        background-color: var(--card-bg);
-        border-radius: 16px;
-        box-shadow: var(--shadow-soft);
+    /* --- CARD STYLING --- */
+    .score-card {
+        background: var(--card-bg);
         border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-soft);
+        border-radius: 12px;
+        position: relative;
         overflow: hidden;
     }
     
-    .score-header {
-        background: linear-gradient(135deg, var(--primary-color) 0%, #4338ca 100%);
-        color: white;
-        padding: 30px;
+    /* --- METRIC TABLE --- */
+    .metric-table {
+        /* Ensure table itself is transparent so card bg shows through */
+        --bs-table-bg: transparent; 
+        --bs-table-hover-bg: rgba(0, 0, 0, 0.02);
     }
 
-    .metric-row {
-        border-bottom: 1px solid var(--border-color);
-        transition: background-color 0.2s;
-    }
-    .metric-row:last-child { border-bottom: none; }
-    .metric-row:hover { background-color: rgba(128,128,128, 0.05); }
-
-    .score-badge {
-        font-size: 1.5rem; font-weight: 800;
-        width: 80px; height: 80px;
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        border: 4px solid rgba(255,255,255,0.2);
-        background: rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-    }
-
-    /* Progress Bar Background adaption */
-    .progress {
+    .metric-table th {
         background-color: var(--bg-body);
+        color: var(--text-muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        padding: 16px;
+        border-bottom: 2px solid var(--border-color);
+        vertical-align: middle;
+    }
+    .metric-table td {
+        background-color: transparent !important; 
+        color: var(--text-main);    
+        padding: 16px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+        font-size: 0.95rem;
+        color: var(--text-main);
+    }
+
+    .metric-table tr:last-child td { 
+        border-bottom: none; 
+    }
+
+    .metric-table tbody tr:hover td {
+        background-color: rgba(127, 127, 127, 0.05) !important;
+    }
+
+    /* --- DOUGHNUT CHART --- */
+    .chart-container {
+        position: relative;
+        width: 160px; height: 160px;
+        margin: 0 auto;
+        border-radius: 50%;
+        /* Conic Gradient creates the pie chart effect */
+        background: conic-gradient(var(--chart-color) var(--chart-val), var(--bg-body) 0); 
+        display: flex; align-items: center; justify-content: center;
+    }
+    .chart-inner {
+        width: 130px; height: 130px;
+        background: var(--card-bg);
+        border-radius: 50%;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        z-index: 2;
+    }
+
+    /* --- CAPTURE BAR --- */
+    .capture-bar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; }
+    .capture-segment { height: 100%; }
+
+    /* --- DRIVER CARDS --- */
+    .driver-card {
+        background: var(--bg-body);
+        border-left: 3px solid var(--border-color);
+        padding: 12px 15px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        transition: transform 0.2s;
+    }
+    .driver-card:hover { transform: translateX(2px); }
+
+    /* --- CUSTOM SLIDER BAR (For Metric Progress) --- */
+    .marker-track {
+        position: relative;
+        height: 6px;
+        background-color: var(--bg-body); 
+        border-radius: 3px;
+        margin-top: 8px;
+        margin-bottom: 2px;
+        border: 1px solid var(--border-color);
+    }
+    .marker-thumb {
+        position: absolute;
+        top: -5px;
+        width: 4px;
+        height: 16px;
+        border-radius: 1px;
+        transform: translateX(-50%);
+        z-index: 2;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .marker-fill {
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        background-color: var(--border-color);
+        opacity: 0.5;
+        border-radius: 3px;
+    }
+
+    .slider-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--text-muted); 
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    
-    <div class="mb-4">
-        <a href="javascript:history.back()" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Back
-        </a>
+<div class="container-fluid py-0">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-0">{{ project.project_name }}</h2>
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">
+                    {{ project.project_code }}
+                </span>
+                <span class="text-muted small">|</span>
+                
+                <span class="badge {% if 'Pre' in project.stage %}bg-warning text-dark{% else %}bg-success text-dark{% endif %} bg-opacity-10 border border-opacity-25">
+                    {{ project.stage }}
+                </span>
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary fw-bold">
+                <i class="fas fa-arrow-left me-2"></i>Back
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-primary fw-bold">
+                <i class="fas fa-print me-2"></i>Print
+            </button>
+        </div>
     </div>
 
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
+    <div class="row g-4">
+        
+        <div class="col-lg-4">
             
-            <div class="d-flex justify-content-end mb-3 align-items-center">
-                <span class="text-muted small fw-bold me-2 text-uppercase">Auditing As:</span>
-                <form method="get">
-                    <select name="metric_role" class="form-select form-select-sm fw-bold border-0 shadow-sm form-control-dark w-auto" 
-                            onchange="this.form.submit()">
-                        
-                        {% for dept, roles in grouped_roles.items %}
-                            <optgroup label="{{ dept }}" style="font-weight: 700; color: var(--text-muted);">
-                                {% for r in roles %}
-                                    <option value="{{ r }}" style="color: var(--text-main);" 
-                                            {% if r == metric_role %}selected{% endif %}>
-                                        {{ r }}
-                                    </option>
-                                {% endfor %}
-                            </optgroup>
-                        {% empty %}
-                            {% for r in all_roles %}
-                                <option value="{{ r }}" {% if r == metric_role %}selected{% endif %}>{{ r }}</option>
-                            {% endfor %}
-                        {% endfor %}
-
-                    </select>
-                </form>
-            </div>
-
-            {% if error %}
-                <div class="alert alert-warning text-center">{{ error }}</div>
-            {% else %}
-
-            <div class="score-card-container">
+            <div class="score-card p-4 mb-4">
+                <h6 class="fw-bold text-muted mb-4 text-center text-uppercase small letter-spacing-1">Performance Analytics</h6>
                 
-                <div class="score-header d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="badge bg-white text-primary mb-2 bg-opacity-90">
-                            {{ project.sbu|default:"Unknown Region" }}
+                <div class="mb-4 text-center">
+                    <div class="chart-container shadow-sm" 
+                         style="--chart-val: {{ project_total_int }}%; 
+                                --chart-color: {% if project_total >= 80 %}#10b981{% elif project_total >= 50 %}#f59e0b{% else %}#ef4444{% endif %};">
+                        <div class="chart-inner">
+                            <h1 class="mb-0 fw-bold display-4" style="color: var(--text-main); line-height: 1;">
+                                {{ project_total_int }}
+                            </h1>
+                            <span class="text-muted fw-bold mt-1" style="font-size: 1rem;">
+                                / {{ total_factor }}
+                            </span>
+                            <small class="text-muted text-uppercase mt-2" style="font-size: 0.6rem;">Total Score</small>
                         </div>
-                        <h2 class="fw-bold mb-1">{{ project.project_name }}</h2>
-                        <div class="opacity-75 font-monospace small">{{ project.project_code }}</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="score-badge mb-1">
-                            {{ project_total_int }}
-                        </div>
-                        <div class="small opacity-75 fw-bold">TOTAL SCORE</div>
                     </div>
                 </div>
 
-                <div class="p-0">
-                    {% for metric in scores %}
-                    <div class="metric-row p-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
-                        
-                        <div style="flex: 1; min-width: 200px;">
-                            <h6 class="fw-bold mb-1" style="color: var(--text-main);">{{ metric.metric }}</h6>
-                            <div class="small text-muted">
-                                Weightage: <span class="fw-bold text-primary">{{ metric.factor }}%</span>
-                            </div>
-                        </div>
-
-                        <div style="flex: 2; min-width: 200px;">
-                            <div class="d-flex justify-content-between small fw-bold mb-1">
-                                <span class="text-muted">Target: {{ metric.target }}</span>
-                                <span class="text-primary">{{ metric.actual }} (Actual)</span>
-                            </div>
-                            <div class="progress" style="height: 8px;">
-                                <div class="progress-bar {% if metric.points_earned > 0 %}bg-success{% else %}bg-secondary{% endif %}" 
-                                     role="progressbar" 
-                                     style="width: {{ metric.status_text }}">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="text-end ps-4" style="min-width: 100px;">
-                            <h4 class="fw-bold mb-0 {% if metric.points_earned > 0 %}text-success{% else %}text-muted{% endif %}">
-                                {{ metric.points_earned }}
-                            </h4>
-                            <small class="text-muted" style="font-size: 0.7rem;">POINTS EARNED</small>
-                        </div>
-
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="fw-bold text-muted" style="font-size: 0.7rem;">CREDIT CAPTURE RATE</small>
+                        <small class="fw-bold text-primary" style="font-size: 0.7rem;">{{ project_total_int }}% Secured</small>
                     </div>
-                    {% empty %}
-                    <div class="p-5 text-center text-muted">
-                        <i class="fas fa-clipboard-check fa-3x mb-3 opacity-25"></i>
-                        <h5>No metrics defined for this role/stage.</h5>
+                    <div class="capture-bar bg-light border">
+                        <div class="capture-segment" style="width: {{ project_total_int }}%; background-color: {% if project_total >= 80 %}#10b981{% elif project_total >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                        <div class="capture-segment bg-danger opacity-10" style="width: calc(100% - {{ project_total_int }}%);"></div>
                     </div>
-                    {% endfor %}
                 </div>
 
-                <div class="bg-light p-3 border-top text-center" style="background-color: var(--bg-body) !important;">
-                    <small class="text-muted">
-                        Scoring Logic: Actual / Target × Weightage (Capped at 100%)
-                    </small>
+                <div class="row text-center border-top pt-3">
+                    <div class="col-6 border-end">
+                        <span class="d-block h5 fw-bold text-dark mb-0">{{ total_factor }}</span>
+                        <small class="text-muted text-uppercase" style="font-size: 0.65rem;">Total Credits</small>
+                    </div>
+                    <div class="col-6">
+                        <span class="d-block h5 fw-bold text-dark mb-0">{{ scores|length }}</span>
+                        <small class="text-muted text-uppercase" style="font-size: 0.65rem;">Audited Metrics</small>
+                    </div>
                 </div>
-
             </div>
-            {% endif %}
 
-        </div>
+            <div class="score-card p-4">
+                <h6 class="fw-bold text-primary border-bottom pb-3 mb-3">
+                    <i class="fas fa-star me-2"></i>High Impact Drivers
+                </h6>
+                <p class="text-muted small mb-3">Top metrics impacting this score based on weightage.</p>
+
+                {% for top_metric in scores|slice:":3" %}
+                <div class="driver-card d-flex justify-content-between align-items-center"
+                     style="border-left-color: {% if top_metric.points_earned == top_metric.factor %}#10b981{% else %}#f59e0b{% endif %};">
+                    
+                    <div class="overflow-hidden me-2">
+                        <div class="fw-bold text-truncate text-dark" style="font-size: 0.85rem;">{{ top_metric.metric }}</div>
+                        <div class="d-flex align-items-center mt-1">
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary border me-2" style="font-size: 0.65rem;">
+                                Max: {{ top_metric.factor }} pts
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="text-end" style="min-width: 50px;">
+                        {% if top_metric.points_earned == top_metric.factor %}
+                            <i class="fas fa-check-circle text-success fs-5"></i>
+                        {% elif top_metric.points_earned > 0 %}
+                            <span class="fw-bold text-warning">{{ top_metric.points_earned }}</span>
+                        {% else %}
+                            <i class="fas fa-times-circle text-danger fs-5"></i>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted small py-3">No metrics available.</div>
+                {% endfor %}
+            </div>
+
+        </div> 
+        
+        <div class="col-lg-8">
+            <div class="score-card">
+                
+                <div class="p-3 border-bottom d-flex justify-content-between align-items-center" 
+                     style="background-color: var(--bg-body); border-radius: 12px 12px 0 0;">
+                    <div> 
+                        <h6 class="fw-bold mb-0" style="color: var(--text-main);">
+                            <i class="fas fa-list-alt me-2 text-primary"></i>Metric Breakdown
+                        </h6>
+                        <small class="text-muted">Audit based on role configuration</small>
+                    </div>
+                    
+                    <form method="get" class="d-flex align-items-center">
+                        <label class="small fw-bold text-muted me-2 text-uppercase">Audit Role:</label>
+                        <select name="metric_role" class="form-select form-select-sm fw-bold border-0 shadow-sm w-auto" 
+                                onchange="this.form.submit()" 
+                                style="min-width: 150px; background-color: var(--card-bg); color: var(--text-main);">
+                            
+                            {% for dept, roles in grouped_roles.items %}
+                                <optgroup label="{{ dept }}">
+                                    {% for r in roles %}
+                                        <option value="{{ r }}" {% if r == metric_role %}selected{% endif %}>{{ r }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% empty %}
+                                <option value="{{ metric_role }}">{{ metric_role }}</option>
+                            {% endfor %}
+
+                        </select>
+                    </form>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table metric-table mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Metric / KPI</th>
+                                <th class="text-center">Threshold Range</th>
+                                <th class="text-center">Actual Value</th>
+                                <th class="text-center">Max Credits</th>
+                                <th class="text-center">Points Scored</th>
+                                <th style="width: 25%;">Progress</th> 
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in scores %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold" style="color: var(--text-main);">{{ s.metric }}</div>
+                                </td>
+
+                                <td class="text-center text-muted small">
+                                    <span class="d-block">Min: <b>{{ s.min }}</b></span>
+                                    <span class="d-block">Max: <b>{{ s.max }}</b></span>
+                                </td>
+
+                                <td class="text-center fw-bold text-primary">
+                                    {{ s.actual }}
+                                </td>
+
+                                <td class="text-center">
+                                    <span class="badge border text-muted" style="background: var(--bg-body); border-color: var(--border-color) !important;">
+                                        {{ s.max }} pts
+                                    </span>
+                                </td>
+
+                                <td class="text-center">
+                                    <span class="fw-bold" style="color: {{ s.color }};">
+                                        {{ s.points_earned }}
+                                    </span>
+                                </td>
+
+                                <td class="align-middle">
+                                    <div class="d-flex justify-content-between slider-label mb-1">
+                                        <span>{{ s.bar_start }}</span>
+                                        <span>{{ s.bar_end }}</span>
+                                    </div>
+                                    
+                                    <div class="marker-track">
+                                        <div class="marker-fill" style="width: {{ s.marker_pct }}%;"></div>
+                                        <div class="marker-thumb" 
+                                             style="left: {{ s.marker_pct }}%; background-color: {{ s.color }};">
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="fas fa-filter fa-2x mb-3 opacity-25"></i>
+                                    <p class="mb-0 fw-bold">No metrics configured.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        
+                        {% if scores %}
+                        <tfoot style="background-color: var(--bg-body); border-top: 2px solid var(--border-color);">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold text-uppercase text-muted small pt-3">Totals</td>
+                                <td class="text-center fw-bold pt-3">{{ total_factor }} pts</td>
+                                <td class="text-center fw-bold text-primary pt-3" style="font-size: 1.1rem;">{{ project_total }}</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div> 
     </div>
 </div>
 {% endblock %}

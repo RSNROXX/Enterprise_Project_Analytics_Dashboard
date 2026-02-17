@@ -13,3 +13,7 @@ def update_params(context, **kwargs):
     for key, value in kwargs.items():
         query[key] = value
     return query.urlencode()
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)

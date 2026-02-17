@@ -39,24 +39,25 @@ class ProjectAdmin(admin.ModelAdmin):
 # --- 5. Metrics Configuration ---
 @admin.register(Metric)
 class MetricAdmin(admin.ModelAdmin):
-    list_display = ('label', 'department', 'stage', 'default_threshold', 'get_assigned_weights')
+    list_display = ('label', 'stage', 'department', 'min_threshold', 'max_threshold')
+    list_editable = ('min_threshold', 'max_threshold')
     list_filter = ('department', 'stage', 'success_metric')
     search_fields = ('label', 'field_name')
     
     # This places the Weight Table directly inside the Metric page
     inlines = [MetricWeightInline]
 
+    # Organize the detail view
     fieldsets = (
-        ('Display Info', {
-            'fields': ('label', 'department', 'success_metric')
+        ('Basic Info', {
+            'fields': ('label', 'field_name', 'department', 'stage')
         }),
-        ('Technical Mapping', {
-            'fields': ('field_name', 'stage', 'default_threshold'),
-            'description': 'Field Name must match the Excel column mapping exactly.'
+        ('Scoring Logic', {
+            'fields': ('min_threshold', 'max_threshold'),
+            'description': '<br><b>Min:</b> Hurdle to start earning points. <br><b>Max:</b> Cap for maximum points.'
         }),
-        ('Legacy Visibility', {
-            'fields': ('visible_to_groups',),
-            'classes': ('collapse',), # Hide by default to encourage using Weights
+        ('Visibility', {
+            'fields': ('visible_to_groups', 'success_metric')
         }),
     )
 

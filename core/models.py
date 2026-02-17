@@ -14,6 +14,9 @@ class Project(models.Model):
     project_name = models.CharField(max_length=255, null=True, blank=True)
     sbu = models.CharField(max_length=50, null=True, blank=True, verbose_name="Region/SBU")
     stage = models.CharField(max_length=50, null=True, blank=True, verbose_name="Project Stage")
+    floors = models.CharField(max_length=50, null=True, blank=True)
+    project_type = models.CharField(max_length=100, null=True, blank=True)
+    lead_id = models.CharField(max_length=100, null=True, blank=True)
     
     # --- Key Dates ---
     login_date = models.DateField(null=True, blank=True)
@@ -87,11 +90,16 @@ class Project(models.Model):
     daily_tasks = models.FloatField(default=0.0)
     grn_created = models.FloatField(default=0.0)
     grn_approved = models.FloatField(default=0.0)
+    weeks_till_date = models.FloatField(default=0.0)
+    days_till_date  = models.FloatField(default=0.0)
+    wpr_download_weeks  = models.FloatField(default=0.0)
+    manpower_added_days = models.FloatField(default=0.0)
     
     # Calculated Ops Metrics
     wpr_half_week = models.FloatField(default=0.0)
     manpower_ratio = models.FloatField(default=0.0)
     dpr_ratio = models.FloatField(default=0.0)
+    wpr_ratio = models.FloatField(default=0.0)
     manpower_day_ratio = models.FloatField(default=0.0)
 
     def __str__(self):
@@ -118,7 +126,6 @@ class UserGroup(models.Model):
         return f"{self.department.name} - {self.name}"
     
 class SuccessMetric(models.Model):
-    """ Tags for UI coloring (e.g. 'Critical' = Red, 'Good' = Green). """
     COLOR_CHOICES = [
         ('primary', 'Blue (Primary)'),
         ('secondary', 'Grey (Secondary)'),
@@ -138,8 +145,8 @@ class SuccessMetric(models.Model):
 
 class Metric(models.Model):
     """ 
-    Defines a KPI to be tracked.
-    Maps a user-friendly Label (e.g. 'Client Visits') to a Database Field (e.g. 'client_access').
+        Defines a KPI to be tracked.
+        Maps a user-friendly Label (e.g. 'Client Visits') to a Database Field (e.g. 'client_access').
     """
     STAGE_CHOICES = [('Pre', 'Pre-Stage'), ('Post', 'Post-Stage')]
 
@@ -147,9 +154,12 @@ class Metric(models.Model):
     field_name = models.CharField(max_length=100, help_text="Must match a field in the Project model exactly.")
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     stage = models.CharField(max_length=10, choices=STAGE_CHOICES)
+
+    # Min and Max Thresholds 
+    min_threshold = models.FloatField(default=1.0, help_text="Below this value, score is 0.")
+    max_threshold = models.FloatField(default=10.0, help_text="Maximum points achievable for this metric.")
     
     # Logic
-    default_threshold = models.FloatField(default=0.0, help_text="Target value for success (e.g. 1.0 for binary tasks).")
     success_metric = models.ForeignKey(SuccessMetric, on_delete=models.SET_NULL, null=True, blank=True)
     
     # Legacy Visibility (kept for backward compatibility, but MetricWeight is preferred)
@@ -160,8 +170,8 @@ class Metric(models.Model):
 
 class MetricWeight(models.Model):
     """
-    The Core Scoring Engine Configuration.
-    Assigns an 'Importance Factor' to a Metric for a specific User Group.
+        The Core Scoring Engine Configuration.
+        Assigns an 'Importance Factor' to a Metric for a specific User Group.
     """
     metric = models.ForeignKey(Metric, on_delete=models.CASCADE)
     user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE)

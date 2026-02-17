@@ -3,7 +3,6 @@
 {% block title %}Analytics Dashboard{% endblock %}
 {% block page_title %}Analytics Dashboard{% endblock %}
 {% block page_subtitle %}
-    View: <span class="text-primary fw-bold">{{ view_mode }}</span> • 
     <span class="text-muted">
         <i class="far fa-calendar-alt me-1"></i> 
         <span class="formatted-date" data-date="{{ start_date }}"></span> to 
@@ -136,7 +135,7 @@
                 </div>
 
                 <div class="col-md-3 border-end px-3">
-                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Perspective</label>
+                    <label class="form-label small fw-bold text-muted text-uppercase mb-1">Roles / Perspective</label>
                     <select name="metric_role" class="form-select form-select-sm fw-bold border-0 bg-light shadow-sm text-primary">
                         <option value="All Roles" {% if current_role == 'All Roles' %}selected{% endif %}>All Roles</option>
                         
@@ -221,33 +220,33 @@
 
                         {% elif view_mode == 'Design' %}
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">ID</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Interior Designers - ID</label>
                                 {% with field_name="f_d_id" options=people_opts.d_id selected=selected_filters.d_id %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">3D</label>
+                                <label class="form-label small fw-bold text-muted mb-1">3D Visualizers - 3D</label>
                                 {% with field_name="f_d_3d" options=people_opts.d_3d selected=selected_filters.d_3d %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">DM</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Design Managers - DM</label>
                                 {% with field_name="f_d_dm" options=people_opts.d_dm selected=selected_filters.d_dm %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">DH</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Design Heads - DH</label>
                                 {% with field_name="f_d_dh" options=people_opts.d_dh selected=selected_filters.d_dh %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
 
                         {% elif view_mode == 'Operations' %}
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">Cluster Head</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Cluster/BU Heads</label>
                                 {% with field_name="f_o_head" options=people_opts.o_head selected=selected_filters.o_head %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">PM</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Senior/Project Managers - SPM/PM</label>
                                 {% with field_name="f_o_pm" options=people_opts.o_pm selected=selected_filters.o_pm %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">OM</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Senior Ops Managers - SOM/OM</label>
                                 {% with field_name="f_o_om" options=people_opts.o_om selected=selected_filters.o_om %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
@@ -259,7 +258,7 @@
                                 {% with field_name="f_o_csc" options=people_opts.o_csc selected=selected_filters.o_csc %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">SS</label>
+                                <label class="form-label small fw-bold text-muted mb-1">Site Supervisors - SS</label>
                                 {% with field_name="f_o_ss" options=people_opts.o_ss selected=selected_filters.o_ss %}{% include "core/components/filter_dropdown.html" %}{% endwith %}
                             </div>
 

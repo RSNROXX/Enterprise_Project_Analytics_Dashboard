@@ -1,22 +1,186 @@
 {% extends "core/base.html" %}
+{% load dashboard_extras %}
+
+{% block title %}Detailed Report{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/fixedcolumns/4.3.0/css/fixedColumns.bootstrap5.min.css">
+
+<style>
+    /* --- 1. TABLE LAYOUT & ALIGNMENT FIXES --- */
+    .table-container { font-size: 0.85rem; }
+
+    /* Force Table to fill width to prevent misalignment */
+    .dataTables_scrollHeadInner, 
+    .dataTables_scrollBody table, 
+    .dataTables_scrollHead table {
+        width: 100% !important; 
+    }
+
+    /* Scrollbars */
+    .dataTables_scrollBody::-webkit-scrollbar { width: 10px; height: 10px; }
+    .dataTables_scrollBody::-webkit-scrollbar-thumb { background: #6c757d; border-radius: 4px; }
+    .dataTables_scrollBody::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
+
+    /* --- 2. HEADER STYLING --- */
+    table.dataTable thead th {
+        background-color: var(--bg-body);
+        color: var(--text-muted);
+        font-weight: 800;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        vertical-align: middle;
+        white-space: nowrap;
+        border-bottom: 2px solid var(--border-color);
+        /* ALIGNMENT FIX: Force symmetrical padding. 
+           DataTables usually adds ~25px right padding for the sort arrow. 
+           We override this to match the left padding. */
+        padding: 10px 12px !important; 
+        position: relative;
+    }
+
+    /* REMOVE DEFAULT DATATABLES SORT ICONS & SPACE */
+    table.dataTable thead .sorting::before,
+    table.dataTable thead .sorting::after,
+    table.dataTable thead .sorting_asc::before,
+    table.dataTable thead .sorting_asc::after,
+    table.dataTable thead .sorting_desc::before,
+    table.dataTable thead .sorting_desc::after {
+        display: none !important;
+        content: "" !important;
+    }
+
+    /* Flex Layout for Header Content */
+    .header-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        gap: 5px;
+    }
+
+    /* Filter Icon (The Trigger) */
+    .excel-filter-trigger {
+        padding: 4px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #adb5bd;
+        transition: all 0.2s;
+        min-width: 20px; 
+        text-align: center;
+    }
+    .excel-filter-trigger:hover {
+        background-color: rgba(0,0,0,0.1);
+        color: var(--primary-color);
+    }
+    .excel-filter-trigger.active-filter {
+        color: var(--primary-color);
+        background-color: rgba(var(--primary-rgb), 0.1);
+    }
+
+    /* --- 3. EXCEL DROPDOWN MENU (Floating) --- */
+    .excel-filter-menu {
+        display: none;
+        position: absolute;
+        width: 280px;
+        background: var(--card-bg); /* Dynamic Background */
+        border: 1px solid var(--border-color);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        z-index: 10000;
+        padding: 10px;
+        font-size: 0.8rem;
+        color: var(--text-main); /* Dynamic Text */
+    }
+
+    .menu-section {
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+    }
+
+    .sort-btn {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        padding: 6px 10px;
+        border-radius: 4px;
+        color: var(--text-main);
+    }
+    .sort-btn:hover { background-color: rgba(0,0,0,0.05); color: var(--primary-color); }
+    .sort-btn i { margin-right: 8px; width: 20px; text-align: center; }
+
+    .menu-search {
+        width: 100%;
+        padding: 5px 8px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        border-radius: 4px;
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+    }
+
+    .checkbox-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        padding: 5px;
+        border-radius: 4px;
+    }
+
+    .checkbox-item {
+        display: block;
+        padding: 3px 5px;
+        cursor: pointer;
+        user-select: none;
+        color: var(--text-main);
+    }
+    .checkbox-item:hover { background-color: rgba(0,0,0,0.05); }
+    .checkbox-item input { margin-right: 8px; vertical-align: middle; }
+
+    /* --- 4. BODY CELLS --- */
+    table.dataTable tbody td {
+        vertical-align: middle;
+        white-space: nowrap;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.8rem;
+        border-color: var(--border-color);
+        padding: 10px 12px !important; /* Match Header Padding */
+    }
+
+    .project-link { color: var(--primary-color); font-weight: 700; text-decoration: none; }
+    .project-link:hover { text-decoration: underline; }
+    
+    /* Button Visibility Fix */
+    div.dt-buttons .btn {
+        margin-bottom: 0; /* Align correctly */
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-0 fw-bold text-dark">
-                <i class="fas fa-table text-primary me-2"></i>{{ report_title|default:"Detailed Project Report" }}
+            <h2 class="mb-0 fw-bold text-dark" style="color: var(--text-main) !important;">
+                <i class="fas fa-table text-primary me-2"></i>Detailed Project Report
             </h2>
             
             <form method="get" class="d-flex align-items-center text-muted small mt-2">
                 <input type="hidden" name="start" value="{{ start_date }}">
                 <input type="hidden" name="end" value="{{ end_date }}">
                 
-                <span class="me-2 fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Viewing:</span>
-                
-                <select name="view" class="form-select form-select-sm d-inline-block w-auto border shadow-sm py-1 ps-2 pe-5 fw-bold text-primary" 
-                        style="cursor: pointer; font-size: 0.9rem; background-color: var(--card-bg);" onchange="this.form.submit()">
+                <span class="me-2 fw-bold text-uppercase">Viewing:</span>
+                <select name="view" class="form-select form-select-sm d-inline-block w-auto border shadow-sm fw-bold text-primary" 
+                        onchange="this.form.submit()" style="cursor: pointer; min-width: 150px; background-color: var(--bg-body); color: var(--text-main); border-color: var(--border-color);">
                     <option value="Marketing" {% if view_mode == 'Marketing' %}selected{% endif %}>Marketing</option>
                     <option value="Sales" {% if view_mode == 'Sales' %}selected{% endif %}>Sales</option>
                     <option value="Design" {% if view_mode == 'Design' %}selected{% endif %}>Design</option>
@@ -25,7 +189,7 @@
                     <option value="Finance" {% if view_mode == 'Finance' %}selected{% endif %}>Finance</option>
                 </select>
                 
-                <span class="mx-3 text-muted">|</span>
+                <span class="mx-3">|</span>
                 <span class="text-muted">
                     <i class="far fa-calendar-alt me-1"></i> 
                     <span class="formatted-date" data-date="{{ start_date }}"></span> to 
@@ -38,14 +202,10 @@
             <a href="{% url 'dashboard' %}?view={{ view_mode }}&start={{ start_date }}&end={{ end_date }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>Back
             </a>
-            <button onclick="window.print()" class="btn btn-outline-primary">
-                <i class="fas fa-print me-2"></i>Print
-            </button>
             <form action="{% url 'export_detailed' %}" method="get">
                 <input type="hidden" name="view" value="{{ view_mode }}">
                 <input type="hidden" name="start" value="{{ start_date }}">
                 <input type="hidden" name="end" value="{{ end_date }}">
-                {% for sbu in request.GET.getlist.sbu %}<input type="hidden" name="sbu" value="{{ sbu }}">{% endfor %}
                 <button type="submit" class="btn btn-success">
                     <i class="fas fa-file-excel me-2"></i>Excel
                 </button>
@@ -53,179 +213,269 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border" style="background-color: var(--card-bg);">
-        <div class="card-body p-4">
-            
-            {% if not df_pre and not df_post %}
-            <div class="alert alert-warning text-center p-5 my-3 rounded-3 border-0 bg-warning bg-opacity-10 text-warning">
-                <h4 class="fw-bold"><i class="fas fa-search me-2"></i>No Data Found</h4>
-                <p class="mb-0 opacity-75" style="color: var(--text-main);">
-                    No projects matched your criteria for <strong>{{ view_mode }}</strong> in this date range.
-                </p>
-            </div>
-            {% endif %}
-
-            <div class="table-responsive custom-scrollbar" style="max-height: 70vh;">
-                {% if df_pre %}
-                <div class="mb-5">
-                    <h5 class="text-primary fw-bold border-bottom pb-3 mb-3 d-flex align-items-center">
-                        <span class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; font-size: 0.75rem;">1</span>
-                        Pre-Stage Analysis
-                    </h5>
-                    {{ df_pre|safe }}
-                </div>
-                {% endif %}
-
-                {% if df_post %}
-                <div class="mb-3">
-                    <h5 class="text-success fw-bold border-bottom pb-3 mb-3 d-flex align-items-center">
-                        <span class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; font-size: 0.75rem;">2</span>
-                        Post-Stage / Execution Analysis
-                    </h5>
-                    {{ df_post|safe }}
-                </div>
-                {% endif %}
-            </div>
-
+    {% if pre_data %}
+    <div class="card shadow-sm border mb-5" style="background-color: var(--card-bg); border-color: var(--border-color) !important;">
+        <div class="card-header bg-transparent border-bottom p-3" style="border-color: var(--border-color) !important;">
+            <h5 class="text-primary fw-bold mb-0">1. Pre-Stage Analysis</h5>
+        </div>
+        <div class="card-body p-0">
+            <table id="preTable" class="table table-hover w-100 nowrap">
+                <thead>
+                    <tr>
+                        {% for col in pre_columns %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in pre_data %}
+                    <tr>
+                        {% for col in pre_columns %}
+                        <td title="{{ row|get_item:col }}">
+                            {% if col == 'Project Name' %}
+                                <a href="{% url 'project_scorecard' row|get_item:'Project Code' %}" class="project-link">
+                                    {{ row|get_item:col }}
+                                </a>
+                            {% else %}
+                                {{ row|get_item:col }}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
+    {% endif %}
+
+    {% if post_data %}
+    <div class="card shadow-sm border mb-5" style="background-color: var(--card-bg); border-color: var(--border-color) !important;">
+        <div class="card-header bg-transparent border-bottom p-3" style="border-color: var(--border-color) !important;">
+            <h5 class="text-success fw-bold mb-0">2. Post-Stage / Execution Analysis</h5>
+        </div>
+        <div class="card-body p-0">
+            <table id="postTable" class="table table-hover w-100 nowrap">
+                <thead>
+                    <tr>
+                        {% for col in post_columns %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in post_data %}
+                    <tr>
+                        {% for col in post_columns %}
+                        <td title="{{ row|get_item:col }}">
+                            {% if col == 'Project Name' %}
+                                <a href="{% url 'project_scorecard' row|get_item:'Project Code' %}" class="project-link">
+                                    {{ row|get_item:col }}
+                                </a>
+                            {% else %}
+                                {{ row|get_item:col }}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not pre_data and not post_data %}
+    <div class="alert alert-warning text-center p-5">
+        <h4>No Data Found</h4>
+        <p>Try adjusting your date range or filters.</p>
+    </div>
+    {% endif %}
+
 </div>
 
-<style>
-    /* PANDAS TABLE STYLING */
-    table.dataframe {
-        width: 100%; border-collapse: separate; 
-        border-spacing: 0; margin-bottom: 0;
-        font-size: 0.85rem; color: var(--text-main);
-    }
-    
-    /* HEADER STYLES (STICKY) */
-    table.dataframe th {
-        background-color: var(--bg-body) !important; 
-        color: var(--text-muted) !important;
-        font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;
-        text-align: left; padding: 15px 12px;
-        border-bottom: 2px solid var(--border-color);
-        white-space: nowrap; 
-        
-        /* STICKY LOGIC */
-        position: sticky; 
-        top: 0; 
-        z-index: 100; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-    }
-    
-    /* CELL STYLES */
-    table.dataframe td {
-        background-color: var(--card-bg) !important;
-        color: var(--text-main) !important;
-        padding: 10px 12px; border-bottom: 1px solid var(--border-color);
-        vertical-align: middle;
-        max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-    }
+<div id="menu-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:9998;"></div>
 
-    /* Column Specifics */
-    table.dataframe td:nth-child(1), table.dataframe td:nth-child(2) {
-        max-width: 250px; font-weight: 600;
-    }
-
-    /* Metric Columns (Center) */
-    table.dataframe td:not(:nth-child(1)):not(:nth-child(2)) { text-align: center; }
-    
-    /* Hover Expansion */
-    table.dataframe td:hover {
-        overflow: visible; white-space: normal; position: relative; z-index: 50;
-        background-color: var(--card-bg) !important; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-        outline: 1px solid var(--primary-color);
-    }
-
-    /* Stripes */
-    table.dataframe tbody tr:nth-of-type(odd) td {
-        background-color: rgba(128, 128, 128, 0.04) !important;
-    }
-    
-    /* Row Hover */
-    table.dataframe tbody tr:hover td { 
-        background-color: rgba(79, 70, 229, 0.1) !important;
-        color: var(--text-main) !important;
-    }
-
-    /* Project Link Styling */
-    .project-link {
-        color: var(--primary-color);
-        transition: all 0.2s;
-    }
-    .project-link:hover {
-        text-decoration: underline !important;
-        color: #000000; 
-    }
-</style>
+<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // DATE LOGIC
-        const dateSpans = document.querySelectorAll('.formatted-date');
+$(document).ready(function() {
+    
+    // --- EXCEL FILTER LOGIC ---
+    function enableExcelFilters(table, tableId) {
         
-        dateSpans.forEach(span => {
-            const rawDate = span.getAttribute('data-date'); 
-            if(rawDate) {
-                const dateObj = new Date(rawDate);
-                const day = dateObj.getDate();
-                const month = dateObj.toLocaleString('default', { month: 'long' });
-                const year = dateObj.getFullYear();
-                
-                let suffix = 'th';
-                if (day % 10 === 1 && day !== 11) suffix = 'st';
-                else if (day % 10 === 2 && day !== 12) suffix = 'nd';
-                else if (day % 10 === 3 && day !== 13) suffix = 'rd';
-                
-                span.innerText = `${day}${suffix} ${month} ${year}`;
-            }
-        });
+        table.columns().every(function (colIdx) {
+            var column = this;
+            var header = $(column.header());
+            var title = header.text().trim();
+            var titleUpper = title.toUpperCase();
 
-        // --- 2. CLICKABLE PROJECT SCORECARD LOGIC ---
-        // Generates a base URL like /project/scorecard/ and removes the dummy ID
-        const scoreUrlTemplate = "{% url 'project_scorecard' '0000' %}"; 
+            // 1. FILTERABLE COLUMNS (Identity + People + Dropdowns)
+            var isFilterable = (
+                ['SBU', 'PROJECT TYPE', 'STAGE', 'LEAD ID', 'PROJECT CODE', 'PROJECT NAME'].includes(titleUpper) || 
+                titleUpper.includes('HEAD') || 
+                titleUpper.includes('LEAD') || 
+                titleUpper.includes('MANAGER') ||
+                titleUpper.includes('VISUALIZER') ||
+                titleUpper.includes('INTERIOR DESIGNER') ||
+                ['ID', 'DH', 'DM', '3D', 'SS', 'SPM/PM', 'SOM/OM', '','CSC', 'MEP'].includes(titleUpper)
+            );
 
-        const tables = document.querySelectorAll('table.dataframe');
+            if (!isFilterable) return;
 
-        tables.forEach(table => {
-            // Find column indices
-            const headers = Array.from(table.querySelectorAll('th')).map(th => th.innerText.trim().toUpperCase());
-            const idIndex = headers.indexOf('PROJECT ID');
-            const nameIndex = headers.indexOf('PROJECT NAME');
+            // 2. RESTRUCTURE HEADER
+            header.html(`
+                <div class="header-wrapper">
+                    <span>${title}</span>
+                    <span class="excel-filter-trigger" id="trigger-${tableId}-${colIdx}">
+                        <i class="fas fa-filter"></i>
+                    </span>
+                </div>
+            `);
 
-            if (idIndex !== -1 && nameIndex !== -1) {
-                const rows = table.querySelectorAll('tbody tr');
-                
-                rows.forEach(row => {
-                    const cells = row.querySelectorAll('td');
+            // 3. GENERATE MENU CONTENT
+            var uniqueData = column.data().unique().sort().toArray();
+            var checkboxHtml = '';
+            uniqueData.forEach(function(d) {
+                if(!d) return; 
+                checkboxHtml += `
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="${d}" checked> ${d}
+                    </label>`;
+            });
+
+            var menuId = `menu-${tableId}-${colIdx}`;
+            var menuHtml = `
+                <div id="${menuId}" class="excel-filter-menu">
+                    <div class="menu-section">
+                        <button class="sort-btn sort-asc"><i class="fas fa-sort-alpha-down"></i> Sort A to Z</button>
+                        <button class="sort-btn sort-desc"><i class="fas fa-sort-alpha-up"></i> Sort Z to A</button>
+                    </div>
                     
-                    if (cells.length > Math.max(idIndex, nameIndex)) {
-                        const projectId = cells[idIndex].innerText.trim();
-                        const projectName = cells[nameIndex].innerText.trim();
+                    <input type="text" class="menu-search" placeholder="Search...">
+                    
+                    <div class="checkbox-list">
+                        <label class="checkbox-item fw-bold">
+                            <input type="checkbox" class="select-all" checked> (Select All)
+                        </label>
+                        <div class="value-container">${checkboxHtml}</div>
+                    </div>
+                    
+                    <div class="text-end mt-2 pt-2 border-top">
+                        <button class="btn btn-primary btn-sm apply-btn w-100">Apply Filter</button>
+                    </div>
+                </div>
+            `;
 
-                        if (projectId && projectName) {
-                            // Create the Link
-                            const link = document.createElement('a');
-                            
-                            // FIX: Replace '0000' with the actual ID to get a clean URL
-                            link.href = scoreUrlTemplate.replace('0000', projectId);
-                            
-                            link.className = "fw-bold text-decoration-none project-link";
-                            link.innerText = projectName;
-                            link.innerHTML += ' <i class="fas fa-external-link-alt fa-xs ms-1 opacity-50"></i>';
+            // 4. TRIGGER CLICK HANDLER
+            header.find('.excel-filter-trigger').on('click', function(e) {
+                e.stopPropagation(); 
+                
+                $('.excel-filter-menu').remove();
+                $('#menu-overlay').show();
 
-                            // Replace cell content
-                            cells[nameIndex].innerHTML = '';
-                            cells[nameIndex].appendChild(link);
-                        }
+                $('body').append(menuHtml);
+                var menu = $('#' + menuId);
+                var offset = $(this).offset();
+                
+                var leftPos = offset.left;
+                if(leftPos + 280 > $(window).width()) {
+                    leftPos = offset.left - 240; 
+                }
+
+                menu.css({
+                    top: offset.top + 30 + 'px',
+                    left: leftPos + 'px',
+                    display: 'block'
+                });
+
+                // Events
+                menu.find('.sort-asc').click(function() { column.order('asc').draw(); closeMenu(); });
+                menu.find('.sort-desc').click(function() { column.order('desc').draw(); closeMenu(); });
+
+                menu.find('.select-all').change(function() {
+                    var isChecked = $(this).is(':checked');
+                    menu.find('.value-container input').prop('checked', isChecked);
+                });
+
+                menu.find('.menu-search').on('keyup', function() {
+                    var val = $(this).val().toLowerCase();
+                    menu.find('.value-container .checkbox-item').filter(function() {
+                        $(this).toggle($(this).text().toLowerCase().indexOf(val) > -1)
+                    });
+                });
+
+                menu.find('.apply-btn').click(function() {
+                    var checked = menu.find('.value-container input:checked').map(function() {
+                        return $.fn.dataTable.util.escapeRegex($(this).val());
+                    }).get();
+
+                    var trigger = $(`#trigger-${tableId}-${colIdx}`);
+                    if(checked.length < uniqueData.length) {
+                        trigger.addClass('active-filter').html('<i class="fas fa-filter-circle-xmark"></i>');
+                    } else {
+                        trigger.removeClass('active-filter').html('<i class="fas fa-filter"></i>');
                     }
+
+                    var searchStr = checked.join('|');
+                    column.search(searchStr ? '^'+searchStr+'$' : '', true, false).draw();
+                    closeMenu();
+                });
+            });
+        });
+    }
+
+    function closeMenu() {
+        $('.excel-filter-menu').remove();
+        $('#menu-overlay').hide();
+    }
+    $('#menu-overlay').click(closeMenu);
+
+    // --- INIT TABLES ---
+    function initTable(tableId) {
+        var tableSelector = '#' + tableId;
+        if (!$(tableSelector).length) return;
+
+        var table = $(tableSelector).DataTable({
+            scrollX: true,         
+            scrollY: '60vh',       
+            scrollCollapse: true,
+            paging: false,         
+            info: false,  // REMOVED COUNTER
+            ordering: true,
+            
+            dom: '<"d-flex justify-content-between align-items-center p-3"Bf>t',
+            
+            buttons: [
+                {
+                    extend: 'colvis',
+                    text: '<i class="fas fa-columns me-2"></i>Show/Hide Columns',
+                    className: 'btn btn-primary btn-sm' // VISIBILITY FIX
+                }
+            ],
+            initComplete: function() {
+                enableExcelFilters(this.api(), tableId);
+                
+                // --- ALIGNMENT FIX (Bit Shifter) ---
+                var api = this.api();
+                setTimeout(function(){
+                    api.columns.adjust().draw();
+                }, 200);
+
+                $(window).on('resize', function() {
+                    api.columns.adjust();
                 });
             }
-        });    
-    });
-</script>
+        });
+    }
 
+    initTable('preTable');
+    initTable('postTable');
+});
+</script>
 {% endblock %}

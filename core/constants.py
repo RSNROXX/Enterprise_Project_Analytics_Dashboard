@@ -120,5 +120,123 @@ EXCEL_COL_MAP = {
     "Total Unique Weekly Tasks": "weekly_tasks",
     "Total Unique Daily Tasks": "daily_tasks",
     "Total GRN/SRN": "grn_created",
-    "Total Approved GRN/SRN": "grn_approved"
+    "Total Approved GRN/SRN": "grn_approved",
+    "Weeks Till Date": "weeks_till_date",
+    "Days Till Date": "days_till_date",
+    "WPR Download Weeks": "wpr_download_weeks",
+    "Manpower Added Days": "manpower_added_days",
+
+}
+
+# ==============================================================================
+# REPORT COLUMN ORDERING 
+# ==============================================================================
+# Use this to define the order of columns in the report_detailed view
+# These names must match the 'Metric Label' in Django Admin EXACTLY.
+
+COMMON_REPORT_COLS = [
+    'Project Name', 
+    'Project Code', 
+    'Lead ID', 
+    'SBU', 
+    'Stage', 
+    'Project Type', 
+    'Floors'
+]
+
+REPORT_ORDER_CONFIG = {
+    'Sales': {   
+        'Pre': COMMON_REPORT_COLS + [
+            'Requirements Uploaded',  
+            'Site Visit Reports',  
+            'Client Visits',              
+            'Sales Head',          
+            'Sales Lead'          
+        ],
+        'Post': COMMON_REPORT_COLS + [
+            'BOQs Uploaded',
+            'Contracts Uploaded',
+            'Requirements Uploaded',  
+            'Site Visit Reports',  
+            'Client Visits',              
+            'Sales Head',          
+            'Sales Lead'           
+        ]
+    },
+
+    'Design': {
+        'Pre': COMMON_REPORT_COLS + [
+            'Layouts',
+            'Furniture Layouts',
+            'Approved Furniture Layouts',
+            'Other Layouts',
+            'Pins Mapped',
+            'No Key Plans Spaces',
+            'Key Plans to Spaces Ratio',
+            'Renders',                                
+            'Approved Renders',                                                                
+            'Material Deck', 
+            'Client Visits',                                                               
+            'Design Head (DH)',         
+            'Design Manager (DM)',         
+            'Interior Designer (ID)',   
+            '3D Visualizer (3D)'        
+        ],
+        'Post': COMMON_REPORT_COLS + [
+            'Layouts',
+            'Furniture Layouts',
+            'Approved Furniture Layouts',
+            'Other Layouts',
+            'Mapped Spaces',
+            'No Key Plans Spaces',
+            'Key Plans to Spaces Ratio',
+            'Renders',                                
+            'Approved Renders',                                                                
+            'Material Deck',
+            'Client Visits',   
+            'GFC Download',
+            'Slides Downloaded',
+            'TD & Elevations',
+            'CAD Files',
+            'Design Head (DH)',         
+            'Design Manager (DM)',         
+            'Interior Designer (ID)',   
+            '3D Visualizer (3D)'       
+        ]
+
+    },
+
+    'Operations': COMMON_REPORT_COLS + [
+        'Site Images',                 
+        'Invoices / Receipts',                 
+        'MEP Drawings',                 
+        'Handover Documents',                 
+        'Weeks Till Date',                          
+        'WPR Download Weeks',                     
+        'WPR Download',                     
+        'WPR Shared',   
+        'Unique Weekly Tasks',              
+        'Unique Daily Tasks',              
+        'Unique Daily Tasks',              
+        'Manpower Ratio',
+        'Days Till Date',
+        'DPR Added (% days)',
+        'Manpower Added Days',
+        'GRNs/SRNs Created',                     
+        'GRNs/SRNs Approved',                     
+        'Cluster/BU Head',            
+        'SPM/PM',     
+        'SOM/OM',     
+        'SS',
+        'MEP',
+        'CSC'      
+    ],
+
+    'Purchase': COMMON_REPORT_COLS + [
+        'Purchase Head',
+        'Purchase Manager'
+    ],
+
+    'Marketing': COMMON_REPORT_COLS,
+    'Finance': COMMON_REPORT_COLS,
 }
