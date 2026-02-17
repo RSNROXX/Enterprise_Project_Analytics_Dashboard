@@ -4,7 +4,7 @@ A centralized data intelligence platform designed to automate the tracking, calc
 
 This system replaces fragmented spreadsheet workflows with a robust Django-based architecture, serving as the organization's single source of truth for employee and project performance.
 
-## 📈 Business Impact & ROI
+## 📈 Tech Impact 
 
 This tool was developed to address critical data fragmentation issues. Since its deployment, it has delivered measurable operational improvements:
 
