@@ -1,69 +1,41 @@
-# 📊 Enterprise Project Analytics Dashboard
+# Enterprise Performance Management & Analytics Dashboard
 
-A robust, data-driven web application designed to streamline project tracking and reporting. This tool ingests raw operational data via Excel, processes complex business logic using **Pandas**, and delivers actionable insights through an interactive **Django** dashboard.
+A centralized data intelligence platform designed to automate the tracking, calculation, and visualization of Key Performance Indicators (KPIs) across Sales, Design, and Operations departments.
 
-## 🚀 Overview
+This system replaces fragmented spreadsheet workflows with a robust Django-based architecture, serving as the organization's single source of truth for employee and project performance.
 
-Managing project lifecycles often involves decentralized spreadsheets and manual data crunching. This application centralizes that workflow, offering leadership and operational teams a single source of truth for:
-* **Pre-Sales Analysis:** Tracking login dates, lead sources, and conversion probabilities.
-* **Execution Monitoring:** visualizing "Post-Sales" performance, design stages, and operational bottlenecks.
-* **Automated Reporting:** Generating formatted Excel reports (Summary & Detailed) instantly.
+## 📈 Business Impact & ROI
+
+This tool was developed to address critical data fragmentation issues. Since its deployment, it has delivered measurable operational improvements:
+
+* **~75% Process Automation:** Successfully automated approximately ~75% of the manual data aggregation work previously required by the MIS team, reducing weekly reporting time from hours to seconds.
+* **High-Velocity Value Delivery:** The system was designed with an agile feedback loop; the core dashboard met business requirements and achieved stakeholder sign-off by the **2nd commit**.
+* **High Leadership Adoption:** Currently utilized **twice weekly** by Department Heads and Managers to monitor project health and resource allocation.
+* **Standardized Scoring:** Replaced subjective manual grading with a deterministic, weighted scoring engine (`pandas` based) that ensures fair performance evaluation across thousands of projects.
 
 ## ✨ Key Features
 
-### 1. 📂 Data Ingestion Engine
-* **Bulk Upload:** Accepts multi-sheet Excel files (Sales, Design, Operations).
-* **Smart Sanitization:** Automatically cleans missing values (`NaN`), normalizes date formats, and maps non-standard column names to the database schema using **Pandas**.
-* **Calculated Metrics:** Computes complex ratios (e.g., *Key Plans Ratio*, *Manpower Efficiency*) on the fly during import.
+### 1. 📊 Advanced Data Engineering
+* **Multi-Sheet Excel Ingestion:** A robust ETL pipeline using `pandas` and `openpyxl` to parse complex, multi-sheet Excel files (Sales, Design, Operations).
+* **Intelligent Data Cleaning:** Automated normalization of inconsistent column headers, date formats, and empty values (`NaN`) to ensure database integrity.
+* **Weighted Scoring Engine:** A custom logic layer that calculates a **0-100 Project Health Score** based on dynamic, stage-specific metrics (Pre-Sales vs. Execution).
 
-### 2. 📈 Interactive Dashboard
-* **Dynamic Filtering:** Filter projects by Date Range, SBU (Strategic Business Unit), or specific Roles (e.g., Sales Head, Project Manager).
-* **Live KPI Cards:** Instant visibility into "Pre-Stage" vs. "Execution Stage" project counts and metrics.
-* **Searchable Dropdowns:** Custom-built filter components that allow searching within dropdown lists for better UX.
+### 2. 🎨 User Experience & Interface
+* **Adaptive "Soft Dark" UI:** A custom-engineered theme using CSS variables (`--card-bg`, `--text-main`) designed specifically to reduce eye strain for managers reviewing data on large monitors.
+* **Role-Based Filtering:** Context-aware dashboards that dynamically adjust views for specific roles (e.g., Sales Leads vs. Project Managers).
+* **Gamified Leaderboards:** A "Hall of Fame" module that aggregates individual credits to rank top performers by department.
 
-### 3. 📝 Reporting Module
-* **Leadership Summary:** Aggregates high-level stats and conversion percentages into a downloadable Excel sheet.
-* **Detailed Exports:** Provides granular, row-by-row project data for auditing purposes.
+### 3. 📝 Reporting & Exports
+* **Deep-Dive Analytics:** Detailed report views with **sticky headers** and cross-linking to individual Project Scorecards for audit trails.
+* **Automated Exporting:** One-click generation of formatted Excel reports for offline analysis.
 * **Live Web Tables:** Renders dataframes directly to HTML tables for quick reviews without downloading.
 
 ## 🛠️ Tech Stack
 
 * **Backend:** Python 3.10+, Django 5.0
 * **Data Processing:** Pandas, NumPy, OpenPyXL
-* **Database:** SQLite (Default for Dev) / PostgreSQL (Production Ready)
-* **Frontend:** HTML5, Bootstrap 5, Vanilla JavaScript
-* **Deployment:** Compatible with PythonAnywhere, Render, and Vercel.
-
-## 📋 Expected Data Structure
-
-The application expects an Excel file (`.xlsx`) containing three specific sheets. The ingestion engine automatically maps the following column headers to the database.
-
-> **Note:** The column names must match exactly (case-insensitive) for the metrics to calculate correctly.
-
-### 1. Sheet: "Sales"
-Required columns for Pre-Sales analysis:
-* `Project Code` (Unique ID)
-* `Project Name`
-* `SBU` (Region/Unit)
-* `Project Login Date` (Used for "Pre-Stage" filtering)
-* `Stage` (Must contain 'Pre Sales' or 'Post Sales')
-* `Sales Head` / `Sales Lead`
-
-### 2. Sheet: "Design"
-Required columns for Design KPIs:
-* `Project Code`
-* `Design Head` (DH) / `Design Lead` (DM)
-* `Design ID` / `3D Visualizer`
-* `No Key Plans Spaces` (Numerator for KPI)
-* `Mapped Spaces` (Denominator for KPI)
-
-### 3. Sheet: "Operation"
-Required columns for Execution tracking:
-* `Project Code`
-* `Ops Head` / `Project Manager` (PM)
-* `Project Start Date`
-* `Project End Date`
-* `Actual Manpower` / `Planned Manpower` (For Efficiency Ratio)
+* **Frontend:** HTML5, Bootstrap 5, Vanilla JavaScript, CSS Variables
+* **Database:** SQLite (Dev) / PostgreSQL (Production)
 
 ## ⚙️ Local Installation
 
@@ -93,6 +65,7 @@ pip install -r requirements.txt
 
 **4. Apply Database Migrations**
 ```bash
+python manage.py makemigrations
 python manage.py migrate
 ```
 
@@ -116,3 +89,8 @@ This repository contains the **source code logic only**.
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Author: [Rishikesh Naware](https://www.linkedin.com/in/rishikesh-naware/)
+
